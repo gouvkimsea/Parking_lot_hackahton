@@ -41,10 +41,10 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({
   return (
     <section
       aria-label="Parking Details"
-      className="flex flex-col bg-white lg:rounded-[32px] lg:shadow-[0_14px_40px_rgba(20,21,23,0.06)] lg:border lg:border-black/[0.04] overflow-hidden min-h-full lg:h-full"
+      className="flex flex-col bg-white md:rounded-[32px] md:shadow-[0_14px_40px_rgba(20,21,23,0.06)] md:border md:border-black/[0.04] overflow-hidden min-h-full md:h-full"
     >
       {/* Top Bar */}
-      <div className="px-5 pt-5 pb-3.5 flex items-center justify-between gap-3 shrink-0">
+      <div className="px-4 sm:px-5 pt-4 sm:pt-5 pb-3.5 flex items-center justify-between gap-3 shrink-0">
         <button
           type="button"
           onClick={onBack}
@@ -54,7 +54,7 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({
           <ArrowLeft className="w-5 h-5" strokeWidth={2.2} />
         </button>
 
-        <h2 className="text-[18px] font-bold tracking-[-0.01em] text-[#141517] truncate">
+        <h2 className="text-[17px] sm:text-[18px] font-bold tracking-[-0.01em] text-[#141517] truncate">
           Parking Details
         </h2>
 
@@ -62,7 +62,7 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({
       </div>
 
       {/* Main Scrollable Content */}
-      <div className="flex-1 min-h-0 lg:overflow-y-auto clean-scroll px-5 pb-28 lg:pb-4 flex flex-col gap-3.5">
+      <div className="flex-1 min-h-0 md:overflow-y-auto clean-scroll px-4 sm:px-5 pb-28 md:pb-4 space-y-3.5">
         {/* Hero Image */}
         <div className="relative rounded-[22px] overflow-hidden aspect-[16/10] bg-[#E8ECE6]">
           {failedImages[heroKey] ? (
@@ -82,9 +82,9 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({
             />
           )}
 
-          <div className="absolute top-3 left-3 inline-flex items-center gap-1.5 bg-white/95 backdrop-blur-sm text-[#141517] px-3 py-1.5 rounded-full text-[11px] font-medium shadow-sm">
+          <div className="absolute top-2.5 left-2.5 inline-flex items-center gap-1.5 bg-white/95 backdrop-blur-sm text-[#141517] px-2.5 sm:px-3 py-1.5 rounded-full text-[11px] font-medium shadow-sm max-w-[calc(100%-68px)]">
             <Clock className="w-3.5 h-3.5 text-[#141517] shrink-0" aria-hidden="true" />
-            <span className="whitespace-nowrap max-w-[190px] truncate">{lot.openHours}</span>
+            <span className="whitespace-nowrap truncate">{lot.openHours}</span>
           </div>
 
           <button
@@ -92,7 +92,7 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({
             onClick={() => onToggleFavorite(lot.id)}
             aria-label={isFavorite ? `Remove ${lot.name} from favorites` : `Save ${lot.name} to favorites`}
             aria-pressed={isFavorite}
-            className="absolute top-2.5 right-2.5 w-10 h-10 rounded-full bg-white/95 hover:bg-white shadow-sm flex items-center justify-center transition-transform active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141517]"
+            className="absolute top-2.5 right-2.5 w-11 h-11 rounded-full bg-white/95 hover:bg-white shadow-sm flex items-center justify-center transition-transform active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141517]"
           >
             <Heart
               className={`w-[18px] h-[18px] transition-colors ${
@@ -166,11 +166,11 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({
         </div>
 
         {/* 2-Column Info Cards: Availability & Price */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-[#F4F5F6] rounded-[18px] py-3.5 px-3 text-center">
-            <p className="text-[13.5px] font-bold text-[#141517]">Availability</p>
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+          <div className="bg-[#F4F5F6] rounded-[18px] py-3 sm:py-3.5 px-2.5 sm:px-3 text-center">
+            <p className="text-[13px] sm:text-[13.5px] font-bold text-[#141517]">Availability</p>
             <p
-              className="text-[12.5px] text-[#767B84] mt-1 tabular-nums"
+              className="text-[12px] sm:text-[12.5px] text-[#767B84] mt-1 tabular-nums break-words"
               data-testid="details-availability"
             >
               {lot.availability.availableSpaces !== null
@@ -178,9 +178,9 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({
                 : AVAILABILITY_LABELS[lot.availability.status]}
             </p>
           </div>
-          <div className="bg-[#F4F5F6] rounded-[18px] py-3.5 px-3 text-center">
-            <p className="text-[13.5px] font-bold text-[#141517]">Price</p>
-            <p className="text-[12.5px] text-[#767B84] mt-1 tabular-nums">
+          <div className="bg-[#F4F5F6] rounded-[18px] py-3 sm:py-3.5 px-2.5 sm:px-3 text-center">
+            <p className="text-[13px] sm:text-[13.5px] font-bold text-[#141517]">Price</p>
+            <p className="text-[12px] sm:text-[12.5px] text-[#767B84] mt-1 tabular-nums break-words">
               {priceDisplay.primaryText}
             </p>
           </div>
@@ -212,25 +212,25 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({
         </div>
       </div>
 
-      {/* Desktop Anchored Bottom CTA */}
-      <div className="hidden lg:block px-5 pt-3 pb-5 bg-white border-t border-black/[0.04] shrink-0">
+      {/* Tablet & Desktop Anchored Bottom CTA */}
+      <div className="hidden md:block px-5 pt-3 pb-4 lg:pb-5 bg-white border-t border-black/[0.04] shrink-0">
         <button
           type="button"
           onClick={onSelectSpace}
           className="w-full h-12 rounded-full bg-[#C5EC45] hover:bg-[#B6DE35] active:scale-[0.99] text-[#141517] text-[15px] font-semibold transition-all shadow-[0_6px_18px_rgba(197,236,69,0.28)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141517] focus-visible:ring-offset-2"
         >
-          Select Space (Demo)
+          Select Space
         </button>
       </div>
 
       {/* Mobile Sticky Bottom CTA */}
-      <div className="lg:hidden fixed bottom-0 inset-x-0 z-30 px-5 pt-3 pb-5 bg-gradient-to-t from-white via-white to-white/0">
+      <div className="md:hidden fixed bottom-0 inset-x-0 z-30 px-4 sm:px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-white via-white to-white/0">
         <button
           type="button"
           onClick={onSelectSpace}
           className="w-full h-12 rounded-full bg-[#C5EC45] hover:bg-[#B6DE35] active:scale-[0.99] text-[#141517] text-[15px] font-semibold transition-all shadow-[0_8px_24px_rgba(197,236,69,0.38)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141517]"
         >
-          Select Space (Demo)
+          Select Space
         </button>
       </div>
     </section>

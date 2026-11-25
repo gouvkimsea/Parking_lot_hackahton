@@ -244,14 +244,14 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[#141517]/50 backdrop-blur-xs p-0 sm:p-4"
+      className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center bg-[#141517]/50 backdrop-blur-xs p-0 sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="booking-modal-title"
       onClick={onClose}
     >
       <div
-        className="w-full sm:max-w-[460px] bg-white rounded-t-[28px] sm:rounded-[28px] shadow-[0_24px_64px_rgba(20,21,23,0.22)] max-h-[92vh] overflow-y-auto clean-scroll"
+        className="w-full sm:max-w-[460px] bg-white rounded-t-[28px] sm:rounded-[28px] shadow-[0_24px_64px_rgba(20,21,23,0.22)] max-h-[92dvh] overflow-y-auto clean-scroll pb-[env(safe-area-inset-bottom)]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Drag handle on mobile */}
@@ -260,9 +260,9 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         </div>
 
         {/* Header */}
-        <div className="px-6 pt-5 pb-4 flex items-center justify-between border-b border-[#F0F1F3]">
-          <div className="flex items-center gap-2.5">
-            <span className="w-9 h-9 rounded-full bg-[#C5EC45] flex items-center justify-center text-[#141517]">
+        <div className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3.5 sm:pb-4 flex items-center justify-between gap-2 border-b border-[#F0F1F3]">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="w-9 h-9 rounded-full bg-[#C5EC45] flex items-center justify-center text-[#141517] shrink-0">
               {confirmedPass ? (
                 <Ticket className="w-[18px] h-[18px]" />
               ) : (
@@ -271,7 +271,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             </span>
             <h2
               id="booking-modal-title"
-              className="text-[18px] font-bold text-[#141517]"
+              className="text-[17px] sm:text-[18px] font-bold text-[#141517] truncate"
             >
               {confirmedPass ? 'Digital Parking Pass' : 'Confirm Reservation'}
             </h2>
@@ -281,7 +281,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             type="button"
             onClick={onClose}
             aria-label="Close booking dialog"
-            className="w-9 h-9 rounded-full bg-[#F4F5F6] hover:bg-[#E8EAED] text-[#141517] flex items-center justify-center transition-colors"
+            className="w-11 h-11 rounded-full bg-[#F4F5F6] hover:bg-[#E8EAED] text-[#141517] flex items-center justify-center transition-colors shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
@@ -289,8 +289,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
         {confirmedPass ? (
           /* Confirmation & Digital Pass State */
-          <div className="p-6 space-y-5">
-            <div className="flex items-center gap-3 bg-[#F3FCE0] rounded-2xl p-4">
+          <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
+            <div className="flex items-center gap-3 bg-[#F3FCE0] rounded-2xl p-3.5 sm:p-4">
               <CheckCircle2 className="w-6 h-6 text-[#4D6A0A] shrink-0" />
               <div>
                 <p className="text-[14px] font-bold text-[#141517]">
@@ -302,12 +302,12 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               </div>
             </div>
 
-            <div className="bg-[#F6F7F8] rounded-[22px] p-5 flex items-center justify-between gap-4">
-              <div className="space-y-1.5 min-w-0">
+            <div className="bg-[#F6F7F8] rounded-[22px] p-4 sm:p-5 flex flex-col min-[380px]:flex-row items-start min-[380px]:items-center justify-between gap-4">
+              <div className="space-y-1.5 min-w-0 w-full">
                 <p className="text-[11px] font-medium text-[#767B84]">
                   Confirmation Code
                 </p>
-                <p className="text-[17px] font-bold font-mono text-[#141517] tracking-tight">
+                <p className="text-[16px] sm:text-[17px] font-bold font-mono text-[#141517] tracking-tight break-all">
                   {confirmedPass.code}
                 </p>
                 <p className="text-[13px] font-semibold text-[#141517] truncate pt-1">
@@ -318,10 +318,12 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                   <span className="truncate">{confirmedPass.lotAddress}</span>
                 </p>
               </div>
-              <BookingQrSvg code={confirmedPass.code} />
+              <div className="self-center shrink-0">
+                <BookingQrSvg code={confirmedPass.code} />
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-[13px]">
+            <div className="grid grid-cols-1 min-[340px]:grid-cols-2 gap-2.5 sm:gap-3 text-[13px]">
               <div className="bg-[#F6F7F8] rounded-2xl p-3.5">
                 <p className="text-[11px] text-[#767B84]">Bay & Floor</p>
                 <p className="font-bold text-[#141517] mt-0.5">
@@ -370,7 +372,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
           </div>
         ) : (
           /* Booking Checkout Form */
-          <form onSubmit={handleSubmit} noValidate className="p-6 space-y-5">
+          <form onSubmit={handleSubmit} noValidate className="p-4 sm:p-6 space-y-4 sm:space-y-5">
             {/* Selected Bay Summary */}
             <div className="bg-[#F6F7F8] rounded-[20px] p-4 flex items-center justify-between gap-3">
               <div className="min-w-0">
@@ -387,7 +389,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                   {lot.pricePerHour === 0 ? 'Free' : formatCurrency(lot.pricePerHour)}
                 </p>
                 <p className="text-[11px] text-[#767B84]">
-                  {lot.pricePerHour === 0 ? 'demo rate' : 'per hour (est.)'}
+                  {lot.pricePerHour === 0 ? 'free' : 'per hour'}
                 </p>
               </div>
             </div>
@@ -406,7 +408,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                         key={veh.id}
                         type="button"
                         onClick={() => handleVehicleSelect(veh.id)}
-                        className={`px-3.5 py-2 rounded-full text-[12.5px] font-medium transition-all ${
+                        className={`min-h-[44px] px-3.5 py-2 rounded-full text-[12.5px] font-medium transition-all ${
                           active
                             ? 'bg-[#C5EC45] text-[#141517] font-semibold'
                             : 'bg-[#F4F5F6] text-[#525760] hover:text-[#141517]'
@@ -419,7 +421,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                   <button
                     type="button"
                     onClick={() => handleVehicleSelect('custom')}
-                    className={`px-3.5 py-2 rounded-full text-[12.5px] font-medium transition-all ${
+                    className={`min-h-[44px] px-3.5 py-2 rounded-full text-[12.5px] font-medium transition-all ${
                       selectedVehicleId === 'custom'
                         ? 'bg-[#C5EC45] text-[#141517] font-semibold'
                         : 'bg-[#F4F5F6] text-[#525760] hover:text-[#141517]'
@@ -462,7 +464,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             </div>
 
             {/* Date & Start Time */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-3">
               <div>
                 <label
                   htmlFor="booking-date"
@@ -519,7 +521,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               <p className="text-[13px] font-semibold text-[#141517] mb-2">
                 Duration
               </p>
-              <div className="grid grid-cols-6 gap-2">
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                 {DURATION_OPTIONS.map((hrs) => {
                   const active = durationHours === hrs;
                   return (
@@ -528,7 +530,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                       type="button"
                       onClick={() => setDurationHours(hrs)}
                       aria-pressed={active}
-                      className={`h-10 rounded-full text-[13px] font-semibold tabular-nums transition-all ${
+                      className={`min-h-[44px] rounded-full text-[13px] font-semibold tabular-nums transition-all ${
                         active
                           ? 'bg-[#C5EC45] text-[#141517]'
                           : 'bg-[#F4F5F6] text-[#525760] hover:text-[#141517]'

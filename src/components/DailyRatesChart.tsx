@@ -150,7 +150,7 @@ export const DailyRatesChart: React.FC<DailyRatesChartProps> = ({
                 aria-label={opt.ariaLabel}
                 aria-pressed={isActive}
                 onClick={() => setStayHours(opt.hours)}
-                className={`px-2.5 sm:px-3.5 py-1.5 rounded-full text-[12px] font-semibold whitespace-nowrap text-center transition-all min-h-[34px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141517] ${
+                className={`px-2 sm:px-3.5 py-1.5 rounded-full text-[11.5px] sm:text-[12px] font-semibold whitespace-nowrap text-center transition-all min-h-[44px] sm:min-h-[38px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141517] ${
                   isActive
                     ? 'bg-[#C5EC45] text-[#141517] shadow-sm'
                     : 'text-[#525760] hover:text-[#141517]'
@@ -301,7 +301,7 @@ export const DailyRatesChart: React.FC<DailyRatesChartProps> = ({
               type="button"
               onClick={() => onSelectLot(item.id)}
               aria-pressed={isSelected}
-              className={`text-left px-3 py-2 rounded-2xl transition-all flex items-center justify-between gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141517] ${
+              className={`min-h-[44px] text-left px-3 py-2 rounded-2xl transition-all flex items-center justify-between gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141517] ${
                 isSelected
                   ? 'bg-[#C5EC45]/25 ring-1 ring-[#C5EC45]'
                   : 'bg-[#F6F7F8] hover:bg-[#ECEFE8]'

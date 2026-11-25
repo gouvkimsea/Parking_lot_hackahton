@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Bike,
   Car,
   ChevronLeft,
   ChevronRight,
   Clock,
+  Loader2,
+  Navigation,
   Search,
   X,
   Zap,
 } from 'lucide-react';
 import { USER_AVATAR_URL } from '../data/parkingLots';
-import type { ParkingLot, VehicleCategory } from '../types/parking';
+import type { DriveVehicleMode, ParkingLot, VehicleCategory } from '../types/parking';
 import {
   FACILITY_TYPE_LABELS,
   getCompactPriceDisplay,
@@ -28,6 +30,10 @@ interface DiscoverPanelProps {
   activeBookedBayKeys: Set<string>;
   onSelectLot: (lotId: string, openDetailsOnMobile?: boolean) => void;
   onOpenProfile: () => void;
+  driveVehicle: DriveVehicleMode | null;
+  findingNearest: boolean;
+  onRequestNearestDrive: () => void;
+  onChangeDriveVehicle: (vehicle: DriveVehicleMode) => void;
 }
 
 const CATEGORY_OPTIONS: Array<{
@@ -52,11 +58,31 @@ export const DiscoverPanel: React.FC<DiscoverPanelProps> = ({
   onToggleShowAll,
   onSelectLot,
   onOpenProfile,
+  driveVehicle,
+  findingNearest,
+  onRequestNearestDrive,
+  onChangeDriveVehicle,
 }) => {
   const [imageIndices, setImageIndices] = useState<Record<string, number>>({});
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
+  const [defaultLimit, setDefaultLimit] = useState<number>(() => {
+    if (typeof window === 'undefined') return 6;
+    if (window.innerWidth >= 1536) return 8;
+    if (window.innerWidth >= 640) return 6;
+    return 4;
+  });
 
-  const visibleLots = showAll ? lots : lots.slice(0, 4);
+  useEffect(() => {
+    const updateLimit = () => {
+      if (window.innerWidth >= 1536) setDefaultLimit(8);
+      else if (window.innerWidth >= 640) setDefaultLimit(6);
+      else setDefaultLimit(4);
+    };
+    window.addEventListener('resize', updateLimit);
+    return () => window.removeEventListener('resize', updateLimit);
+  }, []);
+
+  const visibleLots = showAll ? lots : lots.slice(0, defaultLimit);
 
   const cycleCardImage = (lot: ParkingLot, delta: number, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -75,110 +101,175 @@ export const DiscoverPanel: React.FC<DiscoverPanelProps> = ({
   return (
     <section
       aria-label="Phnom Penh Parking Directory"
-      className="flex flex-col bg-white lg:rounded-[32px] lg:shadow-[0_14px_40px_rgba(20,21,23,0.06)] lg:border lg:border-black/[0.04] overflow-hidden min-h-full lg:h-full"
+      className="flex flex-col bg-white md:rounded-[32px] md:shadow-[0_14px_40px_rgba(20,21,23,0.06)] md:border md:border-black/[0.04] overflow-hidden min-h-full md:h-full"
     >
-      {/* Top Row: User Avatar + Search Location Pill */}
-      <div className="px-5 pt-5 pb-4 flex items-center gap-3">
-        <button
-          type="button"
-          onClick={onOpenProfile}
-          aria-label="Open profile and settings"
-          className="relative w-11 h-11 rounded-full overflow-hidden shrink-0 ring-2 ring-[#F4F5F6] hover:ring-[#C5EC45] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141517]"
-        >
-          <img
-            src={USER_AVATAR_URL}
-            alt="User profile"
-            referrerPolicy="no-referrer"
-            className="w-full h-full object-cover"
-          />
-        </button>
+      {/* Top Bar: User Avatar + Search Pill + Desktop Heading */}
+      <div className="px-4 sm:px-5 lg:px-7 pt-4 sm:pt-5 pb-3.5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3.5">
+        <div className="hidden lg:block shrink-0">
+          <h1 className="text-[24px] font-bold tracking-[-0.02em] text-[#141517]">
+            Find Nearby Parking
+          </h1>
+        </div>
 
-        <div className="relative flex-1">
-          <Search
-            className="w-[18px] h-[18px] text-[#767B84] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
-            aria-hidden="true"
-          />
-          <label htmlFor="parking-search-input" className="sr-only">
-            Search Phnom Penh parking
-          </label>
-          <input
-            id="parking-search-input"
-            type="text"
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search BKK1, Toul Kork, AEON..."
-            className="w-full h-11 pl-11 pr-9 rounded-full bg-[#F4F5F6] text-[14px] text-[#141517] placeholder:text-[#8E939B] focus:outline-none focus:ring-2 focus:ring-[#C5EC45] focus:bg-white transition-all"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => onSearchChange('')}
-              aria-label="Clear search"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center text-[#767B84] hover:text-[#141517] hover:bg-black/5 transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
+        <div className="flex items-center gap-2.5 sm:gap-3 lg:w-full lg:max-w-[520px]">
+          <button
+            type="button"
+            onClick={onOpenProfile}
+            aria-label="Open profile and settings"
+            className="relative w-11 h-11 rounded-full overflow-hidden shrink-0 ring-2 ring-[#F4F5F6] hover:ring-[#C5EC45] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141517]"
+          >
+            <img
+              src={USER_AVATAR_URL}
+              alt="User profile"
+              referrerPolicy="no-referrer"
+              className="w-full h-full object-cover"
+            />
+          </button>
+
+          <div className="relative flex-1 min-w-0">
+            <Search
+              className="w-[18px] h-[18px] text-[#767B84] absolute left-3.5 sm:left-4 top-1/2 -translate-y-1/2 pointer-events-none"
+              aria-hidden="true"
+            />
+            <label htmlFor="parking-search-input" className="sr-only">
+              Search Phnom Penh parking
+            </label>
+            <input
+              id="parking-search-input"
+              type="text"
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder="Search BKK1, Toul Kork, AEON..."
+              className="w-full h-11 pl-10 sm:pl-11 pr-10 rounded-full bg-[#F4F5F6] text-[13.5px] sm:text-[14px] text-[#141517] placeholder:text-[#8E939B] focus:outline-none focus:ring-2 focus:ring-[#C5EC45] focus:bg-white transition-all"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => onSearchChange('')}
+                aria-label="Clear search"
+                className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center text-[#767B84] hover:text-[#141517] hover:bg-black/5 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Main Heading */}
-      <div className="px-5 pb-4 text-center">
-        <h1 className="text-[21px] sm:text-[23px] font-bold tracking-[-0.02em] text-[#141517]">
-          Phnom Penh Bay Demo
+      {/* Mobile & Tablet Centered Heading (matches screenshot on narrow screens) */}
+      <div className="lg:hidden px-4 sm:px-5 pb-3.5 text-center">
+        <h1 className="text-[20px] sm:text-[23px] font-bold tracking-[-0.02em] text-[#141517]">
+          Find Nearby Parking
         </h1>
       </div>
 
       {/* Soft Grey Sheet Container */}
-      <div className="flex-1 min-h-0 lg:overflow-y-auto clean-scroll bg-[#F6F7F8] rounded-t-[28px] px-5 pt-5 pb-24 lg:pb-6 flex flex-col gap-5">
-        {/* Parking Categories */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-[15px] font-semibold text-[#141517]">
-              Vehicle Categories
-            </h2>
-            {activeCategory !== 'all' && (
-              <button
-                type="button"
-                onClick={() => onCategoryChange('all')}
-                className="text-xs font-medium text-[#6B7280] hover:text-[#141517] transition-colors whitespace-nowrap shrink-0"
-              >
-                All Types
-              </button>
-            )}
-          </div>
-
-          <div
-            role="tablist"
-            aria-label="Vehicle category filter"
-            className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1"
-          >
-            {CATEGORY_OPTIONS.map(({ id, label, icon: Icon }) => {
-              const isActive = activeCategory === id;
-              return (
+      <div className="flex-1 min-h-0 bg-[#F6F7F8] rounded-t-[28px] px-4 sm:px-5 lg:px-7 pt-4 sm:pt-5 lg:pt-6 pb-5 md:pb-7 space-y-4 sm:space-y-5">
+        {/* Controls Toolbar: Vehicle Categories + Nearest Parking & Drive */}
+        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between mb-2.5">
+              <h2 className="text-[15px] font-semibold text-[#141517]">
+                Vehicle Categories
+              </h2>
+              {activeCategory !== 'all' && (
                 <button
-                  key={id}
                   type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  onClick={() => onCategoryChange(isActive ? 'all' : id)}
-                  className={`flex items-center gap-2 pl-1.5 pr-3.5 py-1.5 rounded-full text-[13.5px] font-medium transition-all shrink-0 whitespace-nowrap min-h-[42px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141517] ${
-                    isActive
-                      ? 'bg-[#C5EC45] text-[#141517] font-semibold shadow-[0_4px_12px_rgba(197,236,69,0.35)]'
-                      : 'bg-white text-[#525760] hover:text-[#141517] shadow-[0_2px_8px_rgba(20,21,23,0.03)]'
-                  }`}
+                  onClick={() => onCategoryChange('all')}
+                  className="text-xs font-medium text-[#6B7280] hover:text-[#141517] transition-colors whitespace-nowrap shrink-0"
                 >
-                  <span
-                    className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${
-                      isActive ? 'bg-white text-[#141517]' : 'bg-[#F4F5F6] text-[#141517]'
+                  All Types
+                </button>
+              )}
+            </div>
+
+            <div
+              role="tablist"
+              aria-label="Vehicle category filter"
+              className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1"
+            >
+              {CATEGORY_OPTIONS.map(({ id, label, icon: Icon }) => {
+                const isActive = activeCategory === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => onCategoryChange(isActive ? 'all' : id)}
+                    className={`flex items-center gap-2 pl-1.5 pr-3.5 py-1.5 rounded-full text-[13px] sm:text-[13.5px] font-medium transition-all shrink-0 whitespace-nowrap min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141517] ${
+                      isActive
+                        ? 'bg-[#C5EC45] text-[#141517] font-semibold shadow-[0_4px_12px_rgba(197,236,69,0.35)]'
+                        : 'bg-white text-[#525760] hover:text-[#141517] shadow-[0_2px_8px_rgba(20,21,23,0.03)]'
                     }`}
                   >
-                    <Icon className="w-4 h-4" aria-hidden="true" />
-                  </span>
-                  <span>{label}</span>
-                </button>
-              );
-            })}
+                    <span
+                      className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${
+                        isActive ? 'bg-white text-[#141517]' : 'bg-[#F4F5F6] text-[#141517]'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" aria-hidden="true" />
+                    </span>
+                    <span>{label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Nearest Parking & Drive Quick Action */}
+          <div className="flex items-center gap-2 lg:shrink-0 lg:pb-1">
+            <button
+              type="button"
+              onClick={onRequestNearestDrive}
+              disabled={findingNearest}
+              data-testid="nearest-drive-btn"
+              className="flex-1 lg:flex-initial min-h-[44px] px-5 rounded-full bg-[#141517] hover:bg-[#27292E] active:scale-[0.99] disabled:opacity-75 text-white text-[13.5px] font-semibold inline-flex items-center justify-center gap-2 shadow-[0_6px_18px_rgba(20,21,23,0.12)] transition-all whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5EC45]"
+            >
+              {findingNearest ? (
+                <Loader2 className="w-4 h-4 animate-spin text-[#C5EC45] shrink-0" />
+              ) : driveVehicle === 'car' ? (
+                <Car className="w-4 h-4 text-[#C5EC45] shrink-0" aria-hidden="true" />
+              ) : driveVehicle === 'motorcycle' ? (
+                <Bike className="w-4 h-4 text-[#C5EC45] shrink-0" aria-hidden="true" />
+              ) : (
+                <Navigation className="w-4 h-4 text-[#C5EC45] shrink-0" aria-hidden="true" />
+              )}
+              <span>
+                {findingNearest
+                  ? 'Finding Nearest...'
+                  : driveVehicle === 'car'
+                    ? 'Drive to Nearest'
+                    : driveVehicle === 'motorcycle'
+                      ? 'Ride to Nearest'
+                      : 'Nearest Parking & Drive'}
+              </span>
+            </button>
+
+            {driveVehicle !== null && (
+              <button
+                type="button"
+                onClick={() =>
+                  onChangeDriveVehicle(driveVehicle === 'car' ? 'motorcycle' : 'car')
+                }
+                aria-label={`Saved vehicle: ${driveVehicle === 'car' ? 'Car' : 'Moto Bike'}. Click to switch to ${driveVehicle === 'car' ? 'Moto Bike' : 'Car'}`}
+                title={`Switch to ${driveVehicle === 'car' ? 'Moto Bike' : 'Car'}`}
+                data-testid="switch-drive-vehicle-btn"
+                className="min-h-[44px] px-3.5 rounded-full bg-white hover:bg-[#F3FCE0] border border-black/[0.06] text-[#141517] text-[12px] font-semibold inline-flex items-center gap-1.5 shrink-0 shadow-2xs transition-colors"
+              >
+                {driveVehicle === 'car' ? (
+                  <>
+                    <Car className="w-4 h-4 text-[#141517]" aria-hidden="true" />
+                    <span>Car</span>
+                  </>
+                ) : (
+                  <>
+                    <Bike className="w-4 h-4 text-[#141517]" aria-hidden="true" />
+                    <span>Moto</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
 
@@ -191,11 +282,11 @@ export const DiscoverPanel: React.FC<DiscoverPanelProps> = ({
                 ({lots.length})
               </span>
             </h2>
-            {lots.length > 4 && (
+            {lots.length > defaultLimit && (
               <button
                 type="button"
                 onClick={onToggleShowAll}
-                className="text-[13px] font-medium text-[#525760] hover:text-[#141517] transition-colors whitespace-nowrap shrink-0 py-1 px-1"
+                className="min-h-[40px] text-[13px] font-medium text-[#525760] hover:text-[#141517] transition-colors whitespace-nowrap shrink-0 py-1 px-2 rounded-full"
               >
                 {showAll ? 'Show Less' : 'Show All'}
               </button>
@@ -228,7 +319,7 @@ export const DiscoverPanel: React.FC<DiscoverPanelProps> = ({
               </button>
             </div>
           ) : (
-            <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4 xl:gap-5">
               {visibleLots.map((lot) => {
                 const isSelected = lot.id === selectedLotId;
                 const currentImgIndex = imageIndices[lot.id] ?? 0;
@@ -241,7 +332,7 @@ export const DiscoverPanel: React.FC<DiscoverPanelProps> = ({
                     key={lot.id}
                     className={`bg-white rounded-[24px] p-3.5 transition-all duration-200 ${
                       isSelected
-                        ? 'shadow-[0_8px_26px_rgba(20,21,23,0.06)] lg:ring-2 lg:ring-[#C5EC45]'
+                        ? 'shadow-[0_8px_26px_rgba(20,21,23,0.06)] ring-2 ring-[#C5EC45]'
                         : 'shadow-[0_4px_18px_rgba(20,21,23,0.04)] hover:shadow-[0_8px_24px_rgba(20,21,23,0.07)]'
                     }`}
                   >
@@ -266,9 +357,9 @@ export const DiscoverPanel: React.FC<DiscoverPanelProps> = ({
 
                       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/50 to-transparent" />
 
-                      <div className="absolute top-3 left-3 inline-flex items-center gap-1.5 bg-white/95 backdrop-blur-sm text-[#141517] px-3 py-1.5 rounded-full text-[11px] font-medium shadow-sm">
+                      <div className="absolute top-2.5 left-2.5 inline-flex items-center gap-1.5 bg-white/95 backdrop-blur-sm text-[#141517] px-2.5 sm:px-3 py-1.5 rounded-full text-[11px] font-medium shadow-sm max-w-[calc(100%-20px)]">
                         <Clock className="w-3.5 h-3.5 text-[#141517] shrink-0" aria-hidden="true" />
-                        <span className="whitespace-nowrap truncate max-w-[170px]">
+                        <span className="whitespace-nowrap truncate">
                           {lot.openHours}
                         </span>
                       </div>
@@ -279,7 +370,7 @@ export const DiscoverPanel: React.FC<DiscoverPanelProps> = ({
                             type="button"
                             onClick={(e) => cycleCardImage(lot, -1, e)}
                             aria-label={`Previous photo of ${lot.name}`}
-                            className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/85 hover:bg-white text-[#141517] flex items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shadow-sm"
+                            className="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-[#141517] items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shadow-sm"
                           >
                             <ChevronLeft className="w-4 h-4" />
                           </button>
@@ -287,7 +378,7 @@ export const DiscoverPanel: React.FC<DiscoverPanelProps> = ({
                             type="button"
                             onClick={(e) => cycleCardImage(lot, 1, e)}
                             aria-label={`Next photo of ${lot.name}`}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/85 hover:bg-white text-[#141517] flex items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shadow-sm"
+                            className="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-[#141517] items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shadow-sm"
                           >
                             <ChevronRight className="w-4 h-4" />
                           </button>
@@ -301,10 +392,10 @@ export const DiscoverPanel: React.FC<DiscoverPanelProps> = ({
                                   type="button"
                                   onClick={(e) => setCardImage(lot.id, idx, e)}
                                   aria-label={`View photo ${idx + 1} of ${lot.name}`}
-                                  className={`h-1.5 rounded-full transition-all ${
+                                  className={`h-2 rounded-full transition-all ${
                                     activeDot
                                       ? 'w-6 bg-[#C5EC45]'
-                                      : 'w-1.5 bg-white/75 hover:bg-white'
+                                      : 'w-2 bg-white/80 hover:bg-white'
                                   }`}
                                 />
                               );
@@ -315,17 +406,17 @@ export const DiscoverPanel: React.FC<DiscoverPanelProps> = ({
                     </div>
 
                     {/* Title, District & KHR Price */}
-                    <div className="mt-3.5 px-1 flex items-start justify-between gap-3">
+                    <div className="mt-3.5 px-0.5 flex items-start justify-between gap-2.5 flex-wrap min-[340px]:flex-nowrap">
                       <div className="min-w-0">
-                        <h3 className="text-[15.5px] font-bold text-[#141517] truncate">
+                        <h3 className="text-[15px] sm:text-[15.5px] font-bold text-[#141517] truncate">
                           {lot.name}
                         </h3>
                         <p className="text-[12px] text-[#767B84] leading-[1.45] mt-0.5 line-clamp-2">
                           {lot.district} · {FACILITY_TYPE_LABELS[lot.facilityType]}
                         </p>
                       </div>
-                      <div className="text-right shrink-0 pt-0.5">
-                        <p className="text-[14px] font-extrabold tracking-[-0.01em] text-[#141517] tabular-nums">
+                      <div className="text-left min-[340px]:text-right shrink-0 pt-0.5">
+                        <p className="text-[13.5px] sm:text-[14px] font-extrabold tracking-[-0.01em] text-[#141517] tabular-nums">
                           {priceDisplay.primaryText}
                         </p>
                         {priceDisplay.secondaryUsd && (

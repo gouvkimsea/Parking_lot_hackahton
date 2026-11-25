@@ -202,7 +202,7 @@ export const FacilityDetailDrawer: React.FC<FacilityDetailDrawerProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex justify-end bg-[#141517]/45 backdrop-blur-[2px]"
+      className="fixed inset-0 z-[1000] flex justify-end bg-[#141517]/45 backdrop-blur-[2px]"
       role="dialog"
       aria-modal="true"
       aria-labelledby="facility-drawer-title"
@@ -213,7 +213,7 @@ export const FacilityDetailDrawer: React.FC<FacilityDetailDrawerProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header */}
-        <div className="px-6 py-4 border-b border-[#F0F1F3] flex items-start justify-between gap-3 shrink-0">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-[#F0F1F3] flex items-start justify-between gap-2.5 sm:gap-3 shrink-0">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#F3FCE0] text-[#3F5A05]">
@@ -235,7 +235,7 @@ export const FacilityDetailDrawer: React.FC<FacilityDetailDrawerProps> = ({
             </div>
             <h2
               id="facility-drawer-title"
-              className="text-[20px] font-bold text-[#141517] mt-1.5 leading-snug"
+              className="text-[18px] sm:text-[20px] font-bold text-[#141517] mt-1.5 leading-snug"
             >
               {lot.name}
             </h2>
@@ -250,7 +250,7 @@ export const FacilityDetailDrawer: React.FC<FacilityDetailDrawerProps> = ({
                   ? `Remove ${lot.name} from saved places`
                   : `Save ${lot.name} to favorites`
               }
-              className="w-10 h-10 rounded-full bg-[#F4F5F6] hover:bg-[#EAECEF] flex items-center justify-center transition-colors"
+              className="w-11 h-11 rounded-full bg-[#F4F5F6] hover:bg-[#EAECEF] flex items-center justify-center transition-colors"
             >
               <Heart
                 className={`w-[18px] h-[18px] ${
@@ -262,7 +262,7 @@ export const FacilityDetailDrawer: React.FC<FacilityDetailDrawerProps> = ({
               type="button"
               onClick={onClose}
               aria-label="Close facility details"
-              className="w-10 h-10 rounded-full bg-[#F4F5F6] hover:bg-[#EAECEF] text-[#141517] flex items-center justify-center transition-colors"
+              className="w-11 h-11 rounded-full bg-[#F4F5F6] hover:bg-[#EAECEF] text-[#141517] flex items-center justify-center transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
@@ -270,7 +270,7 @@ export const FacilityDetailDrawer: React.FC<FacilityDetailDrawerProps> = ({
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto clean-scroll px-6 py-5 space-y-5">
+        <div className="flex-1 overflow-y-auto clean-scroll px-4 sm:px-6 py-4 sm:py-5 space-y-4 sm:space-y-5">
           {/* Address, Coordinates & Hours */}
           <div className="bg-[#F6F7F8] rounded-[20px] p-4 space-y-2.5">
             <p className="text-[13px] text-[#141517] font-medium flex items-start gap-2">
@@ -370,7 +370,7 @@ export const FacilityDetailDrawer: React.FC<FacilityDetailDrawerProps> = ({
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2.5 text-[12.5px]">
+              <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2.5 text-[12.5px]">
                 <div className="bg-white rounded-xl p-3 border border-cyan-100">
                   <p className="text-[11px] text-[#767B84]">Provider</p>
                   <p className="font-semibold text-[#141517] mt-0.5">
@@ -473,12 +473,12 @@ export const FacilityDetailDrawer: React.FC<FacilityDetailDrawerProps> = ({
               </p>
             )}
 
-            <div className="flex items-center justify-between gap-2 pt-1 text-[11.5px] text-[#767B84]">
+            <div className="flex items-center justify-between gap-2 flex-wrap pt-1 text-[11.5px] text-[#767B84]">
               <span className="truncate">Source: {lot.pricing.sourceLabel}</span>
               <button
                 type="button"
                 onClick={() => setReportOpen((prev) => !prev)}
-                className="inline-flex items-center gap-1 text-[#141517] font-semibold hover:underline shrink-0"
+                className="min-h-[38px] inline-flex items-center gap-1 text-[#141517] font-semibold hover:underline shrink-0"
               >
                 <Flag className="w-3.5 h-3.5" />
                 Report incorrect price
@@ -517,7 +517,7 @@ export const FacilityDetailDrawer: React.FC<FacilityDetailDrawerProps> = ({
                 <p className="text-[12.5px] font-bold text-[#141517]">
                   Submit Price Correction
                 </p>
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-2.5">
                   <div>
                     <label
                       htmlFor="report-vehicle-type"
@@ -533,7 +533,7 @@ export const FacilityDetailDrawer: React.FC<FacilityDetailDrawerProps> = ({
                           e.target.value as PriceReport['vehicleType']
                         )
                       }
-                      className="w-full h-9 px-2.5 rounded-xl bg-white text-[12.5px] text-[#141517] border border-black/10 focus:outline-none focus:ring-2 focus:ring-[#C5EC45]"
+                      className="w-full h-11 px-2.5 rounded-xl bg-white text-[12.5px] text-[#141517] border border-black/10 focus:outline-none focus:ring-2 focus:ring-[#C5EC45]"
                     >
                       <option value="car">Car (KHR/hr)</option>
                       <option value="motorcycle">Motorcycle (KHR)</option>
@@ -561,7 +561,7 @@ export const FacilityDetailDrawer: React.FC<FacilityDetailDrawerProps> = ({
                         }));
                       }}
                       placeholder="e.g. 2000"
-                      className="w-full h-9 px-3 rounded-xl bg-white text-[12.5px] text-[#141517] border border-black/10 focus:outline-none focus:ring-2 focus:ring-[#C5EC45]"
+                      className="w-full h-11 px-3 rounded-xl bg-white text-[12.5px] text-[#141517] border border-black/10 focus:outline-none focus:ring-2 focus:ring-[#C5EC45]"
                     />
                   </div>
                 </div>
@@ -583,20 +583,20 @@ export const FacilityDetailDrawer: React.FC<FacilityDetailDrawerProps> = ({
                     value={reportNotes}
                     onChange={(e) => setReportNotes(e.target.value)}
                     placeholder="e.g. Gate sign says 1,000 KHR flat for moto"
-                    className="w-full h-9 px-3 rounded-xl bg-white text-[12.5px] text-[#141517] border border-black/10 focus:outline-none focus:ring-2 focus:ring-[#C5EC45]"
+                    className="w-full h-11 px-3 rounded-xl bg-white text-[12.5px] text-[#141517] border border-black/10 focus:outline-none focus:ring-2 focus:ring-[#C5EC45]"
                   />
                 </div>
                 <div className="flex justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => setReportOpen(false)}
-                    className="px-3.5 py-1.5 rounded-full text-[12px] font-medium text-[#525760] hover:text-[#141517]"
+                    className="min-h-[44px] px-4 py-1.5 rounded-full text-[12px] font-medium text-[#525760] hover:text-[#141517]"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-1.5 rounded-full bg-[#141517] text-white text-[12px] font-semibold hover:bg-[#2A2D32]"
+                    className="min-h-[44px] px-5 py-1.5 rounded-full bg-[#141517] text-white text-[12px] font-semibold hover:bg-[#2A2D32]"
                   >
                     Submit Report
                   </button>
@@ -677,12 +677,12 @@ export const FacilityDetailDrawer: React.FC<FacilityDetailDrawerProps> = ({
         </div>
 
         {/* Sticky Bottom Actions */}
-        <div className="px-6 py-4 border-t border-[#F0F1F3] bg-white shrink-0 flex flex-col gap-2.5">
-          <div className="grid grid-cols-2 gap-2.5">
+        <div className="px-4 sm:px-6 pt-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-[#F0F1F3] bg-white shrink-0 flex flex-col gap-2.5">
+          <div className="grid grid-cols-1 min-[340px]:grid-cols-2 gap-2.5">
             <button
               type="button"
               onClick={() => onRequestDirections(lot)}
-              className="h-11 rounded-full bg-[#141517] hover:bg-[#2A2D32] text-white text-[13.5px] font-semibold transition-colors inline-flex items-center justify-center gap-1.5"
+              className="min-h-[44px] rounded-full bg-[#141517] hover:bg-[#2A2D32] text-white text-[13.5px] font-semibold transition-colors inline-flex items-center justify-center gap-1.5"
             >
               <Navigation className="w-4 h-4" />
               <span>Route on Map</span>
@@ -691,7 +691,7 @@ export const FacilityDetailDrawer: React.FC<FacilityDetailDrawerProps> = ({
               href={googleMapsExternalUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="h-11 rounded-full bg-[#F4F5F6] hover:bg-[#E8EAED] text-[#141517] text-[13.5px] font-semibold transition-colors inline-flex items-center justify-center gap-1.5"
+              className="min-h-[44px] rounded-full bg-[#F4F5F6] hover:bg-[#E8EAED] text-[#141517] text-[13.5px] font-semibold transition-colors inline-flex items-center justify-center gap-1.5"
             >
               <span>Google Maps</span>
               <ExternalLink className="w-3.5 h-3.5" />
@@ -701,9 +701,9 @@ export const FacilityDetailDrawer: React.FC<FacilityDetailDrawerProps> = ({
           <button
             type="button"
             onClick={() => onOpenDemoReserve(lot.id)}
-            className="w-full h-11 rounded-full bg-[#C5EC45] hover:bg-[#B6DE35] text-[#141517] text-[13.5px] font-semibold transition-colors"
+            className="w-full min-h-[46px] rounded-full bg-[#C5EC45] hover:bg-[#B6DE35] text-[#141517] text-[13.5px] font-semibold transition-colors"
           >
-            Open Bay Selector (Demo)
+            Select Parking Bay
           </button>
         </div>
       </div>

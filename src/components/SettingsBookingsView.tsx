@@ -90,13 +90,13 @@ export const SettingsBookingsView: React.FC<SettingsBookingsViewProps> = ({
   return (
     <section
       aria-label="Account Settings and Bookings"
-      className="max-w-[1380px] mx-auto w-full px-4 sm:px-5 lg:px-8 pb-28 lg:pb-10"
+      className="max-w-[1440px] 2xl:max-w-[1600px] mx-auto w-full px-3 sm:px-5 lg:px-6 xl:px-8 pt-3 md:pt-0 pb-28 md:pb-10"
     >
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6 items-start">
         {/* Left Column: Profile + Vehicles + Preferences */}
-        <div className="lg:col-span-5 space-y-6">
+        <div className="lg:col-span-5 space-y-5 sm:space-y-6">
           {/* Profile Summary Card */}
-          <div className="bg-white rounded-[28px] p-6 shadow-[0_12px_36px_rgba(20,21,23,0.05)] border border-black/[0.04] flex items-center gap-4">
+          <div className="bg-white rounded-[24px] sm:rounded-[28px] p-4 sm:p-6 shadow-[0_12px_36px_rgba(20,21,23,0.05)] border border-black/[0.04] flex items-center gap-3.5 sm:gap-4">
             <img
               src={USER_AVATAR_URL}
               alt="Sarah Lin"
@@ -119,7 +119,7 @@ export const SettingsBookingsView: React.FC<SettingsBookingsViewProps> = ({
           </div>
 
           {/* Saved Vehicles Card */}
-          <div className="bg-white rounded-[28px] p-6 shadow-[0_12px_36px_rgba(20,21,23,0.05)] border border-black/[0.04] space-y-4">
+          <div className="bg-white rounded-[24px] sm:rounded-[28px] p-4 sm:p-6 shadow-[0_12px_36px_rgba(20,21,23,0.05)] border border-black/[0.04] space-y-4">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-[16px] font-bold text-[#141517]">
                 Saved Vehicles
@@ -130,7 +130,7 @@ export const SettingsBookingsView: React.FC<SettingsBookingsViewProps> = ({
                   setShowAddForm((prev) => !prev);
                   setVehicleErrors({});
                 }}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#C5EC45] hover:bg-[#B6DE35] text-[#141517] text-[12.5px] font-semibold transition-colors"
+                className="inline-flex items-center gap-1.5 min-h-[44px] px-3.5 py-2 rounded-full bg-[#C5EC45] hover:bg-[#B6DE35] text-[#141517] text-[12.5px] font-semibold transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>{showAddForm ? 'Close' : 'Add Vehicle'}</span>
@@ -141,7 +141,7 @@ export const SettingsBookingsView: React.FC<SettingsBookingsViewProps> = ({
               <form
                 onSubmit={handleVehicleSubmit}
                 noValidate
-                className="bg-[#F6F7F8] rounded-[20px] p-4 space-y-3"
+                className="bg-[#F6F7F8] rounded-[20px] p-3.5 sm:p-4 space-y-3"
               >
                 <div>
                   <label
@@ -159,7 +159,7 @@ export const SettingsBookingsView: React.FC<SettingsBookingsViewProps> = ({
                       setVehicleErrors((prev) => ({ ...prev, label: undefined }));
                     }}
                     placeholder="e.g. Honda Civic · Silver"
-                    className="w-full h-10 px-3.5 rounded-xl bg-white text-[13.5px] text-[#141517] focus:outline-none focus:ring-2 focus:ring-[#C5EC45]"
+                    className="w-full h-11 px-3.5 rounded-xl bg-white text-[13.5px] text-[#141517] focus:outline-none focus:ring-2 focus:ring-[#C5EC45]"
                   />
                   {vehicleErrors.label && (
                     <p role="alert" className="text-[11.5px] text-[#DC2626] mt-1 font-medium">
@@ -168,7 +168,7 @@ export const SettingsBookingsView: React.FC<SettingsBookingsViewProps> = ({
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
                     <label
                       htmlFor="new-vehicle-plate"
@@ -185,7 +185,7 @@ export const SettingsBookingsView: React.FC<SettingsBookingsViewProps> = ({
                         setVehicleErrors((prev) => ({ ...prev, plate: undefined }));
                       }}
                       placeholder="PP-2AB-4821"
-                      className="w-full h-10 px-3.5 rounded-xl bg-white font-mono text-[13.5px] text-[#141517] focus:outline-none focus:ring-2 focus:ring-[#C5EC45]"
+                      className="w-full h-11 px-3.5 rounded-xl bg-white font-mono text-[13.5px] text-[#141517] focus:outline-none focus:ring-2 focus:ring-[#C5EC45]"
                     />
                     {vehicleErrors.plate && (
                       <p role="alert" className="text-[11.5px] text-[#DC2626] mt-1 font-medium">
@@ -207,7 +207,7 @@ export const SettingsBookingsView: React.FC<SettingsBookingsViewProps> = ({
                       onChange={(e) =>
                         setNewVehicleCategory(e.target.value as VehicleCategory)
                       }
-                      className="w-full h-10 px-3 rounded-xl bg-white text-[13.5px] text-[#141517] focus:outline-none focus:ring-2 focus:ring-[#C5EC45]"
+                      className="w-full h-11 px-3 rounded-xl bg-white text-[13.5px] text-[#141517] focus:outline-none focus:ring-2 focus:ring-[#C5EC45]"
                     >
                       <option value="car">Car</option>
                       <option value="motorcycle">Motorcycle</option>
@@ -219,7 +219,7 @@ export const SettingsBookingsView: React.FC<SettingsBookingsViewProps> = ({
 
                 <button
                   type="submit"
-                  className="w-full h-10 rounded-full bg-[#141517] hover:bg-[#2A2D32] text-white text-[13px] font-semibold transition-colors"
+                  className="w-full min-h-[44px] rounded-full bg-[#141517] hover:bg-[#2A2D32] text-white text-[13px] font-semibold transition-colors"
                 >
                   Save Vehicle
                 </button>
@@ -230,7 +230,7 @@ export const SettingsBookingsView: React.FC<SettingsBookingsViewProps> = ({
               {vehicles.map((veh) => (
                 <div
                   key={veh.id}
-                  className="flex items-center justify-between gap-3 bg-[#F6F7F8] rounded-2xl px-4 py-3"
+                  className="flex items-center justify-between gap-3 bg-[#F6F7F8] rounded-2xl px-3.5 sm:px-4 py-3"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <span className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-[#141517] shrink-0">
@@ -249,7 +249,7 @@ export const SettingsBookingsView: React.FC<SettingsBookingsViewProps> = ({
                     type="button"
                     onClick={() => onDeleteVehicle(veh.id)}
                     aria-label={`Remove vehicle ${veh.label}`}
-                    className="w-9 h-9 rounded-full hover:bg-white text-[#767B84] hover:text-[#DC2626] flex items-center justify-center transition-colors shrink-0"
+                    className="w-11 h-11 rounded-full hover:bg-white text-[#767B84] hover:text-[#DC2626] flex items-center justify-center transition-colors shrink-0"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -259,7 +259,7 @@ export const SettingsBookingsView: React.FC<SettingsBookingsViewProps> = ({
           </div>
 
           {/* App Preferences */}
-          <div className="bg-white rounded-[28px] p-6 shadow-[0_12px_36px_rgba(20,21,23,0.05)] border border-black/[0.04] space-y-4">
+          <div className="bg-white rounded-[24px] sm:rounded-[28px] p-4 sm:p-6 shadow-[0_12px_36px_rgba(20,21,23,0.05)] border border-black/[0.04] space-y-4">
             <h2 className="text-[16px] font-bold text-[#141517]">Preferences</h2>
 
             {(
@@ -318,9 +318,9 @@ export const SettingsBookingsView: React.FC<SettingsBookingsViewProps> = ({
         </div>
 
         {/* Right Column: Active Reservations + Saved Favorites */}
-        <div className="lg:col-span-7 space-y-6">
+        <div className="lg:col-span-7 space-y-5 sm:space-y-6">
           {/* Active Bookings */}
-          <div className="bg-white rounded-[28px] p-6 shadow-[0_12px_36px_rgba(20,21,23,0.05)] border border-black/[0.04] space-y-4">
+          <div className="bg-white rounded-[24px] sm:rounded-[28px] p-4 sm:p-6 shadow-[0_12px_36px_rgba(20,21,23,0.05)] border border-black/[0.04] space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-[18px] font-bold text-[#141517]">
                 Active Reservations
@@ -376,7 +376,7 @@ export const SettingsBookingsView: React.FC<SettingsBookingsViewProps> = ({
                         <button
                           type="button"
                           onClick={() => onShowPass(bk)}
-                          className="px-4 py-2 rounded-full bg-[#C5EC45] hover:bg-[#B6DE35] text-[#141517] text-[12.5px] font-semibold transition-colors whitespace-nowrap"
+                          className="min-h-[44px] px-4 py-2 rounded-full bg-[#C5EC45] hover:bg-[#B6DE35] text-[#141517] text-[12.5px] font-semibold transition-colors whitespace-nowrap"
                         >
                           Show Pass
                         </button>
@@ -384,7 +384,7 @@ export const SettingsBookingsView: React.FC<SettingsBookingsViewProps> = ({
                           type="button"
                           onClick={() => onCancelBooking(bk.id)}
                           aria-label={`Cancel booking ${bk.code}`}
-                          className="px-3.5 py-2 rounded-full bg-white hover:bg-[#FEE2E2] text-[#525760] hover:text-[#DC2626] text-[12.5px] font-semibold transition-colors whitespace-nowrap"
+                          className="min-h-[44px] px-3.5 py-2 rounded-full bg-white hover:bg-[#FEE2E2] text-[#525760] hover:text-[#DC2626] text-[12.5px] font-semibold transition-colors whitespace-nowrap"
                         >
                           Cancel
                         </button>

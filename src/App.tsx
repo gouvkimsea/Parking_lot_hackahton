@@ -3,16 +3,22 @@ import { BookingModal } from './components/BookingModal';
 import { DailyRatesChart } from './components/DailyRatesChart';
 import { DetailsPanel } from './components/DetailsPanel';
 import { DiscoverPanel } from './components/DiscoverPanel';
+import { DriveVehicleModal } from './components/DriveVehicleModal';
 import { FacilityDetailDrawer } from './components/FacilityDetailDrawer';
 import { MapExplorerView } from './components/MapExplorerView';
-import { DesktopTopBar, MobileBottomNav } from './components/NavigationChrome';
+import {
+  DesktopTopBar,
+  MobileBottomNav,
+  MobileTopHeader,
+} from './components/NavigationChrome';
 import { SettingsBookingsView } from './components/SettingsBookingsView';
 import { SpaceSelectorPanel } from './components/SpaceSelectorPanel';
-import { INITIAL_VEHICLES, PARKING_LOTS } from './data/parkingLots';
+import { INITIAL_VEHICLES, PARKING_LOTS, PHNOM_PENH_CENTER } from './data/parkingLots';
 import type {
   ActiveTab,
   AvailabilityStatus,
   BookingRecord,
+  DriveVehicleMode,
   EvFilterMode,
   FacilityType,
   FloorId,
@@ -30,6 +36,7 @@ import {
   filterParkingLots,
   filterPhnomPenhLots,
   findFirstAvailableBay,
+  findNearestCompatibleParking,
   getActiveBookedBayKeys,
 } from './utils/parkingLogic';
 
@@ -39,6 +46,7 @@ const STORAGE_KEYS = {
   vehicles: 'parkeasy_pp_vehicles_v1',
   preferences: 'parkeasy_pp_preferences_v1',
   priceReports: 'parkeasy_pp_price_reports_v1',
+  driveVehicle: 'parkeasy_pp_drive_vehicle_v1',
 };
 
 function loadFromStorage<T>(key: string, fallback: T): T {
@@ -51,25 +59,31 @@ function loadFromStorage<T>(key: string, fallback: T): T {
   }
 }
 
-function useIsDesktop(): boolean {
-  const [isDesktop, setIsDesktop] = useState<boolean>(() =>
-    typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
-  );
+type ViewportTier = 'mobile' | 'tablet' | 'desktop';
+
+function getViewportTier(): ViewportTier {
+  if (typeof window === 'undefined') return 'desktop';
+  if (window.innerWidth >= 1024) return 'desktop';
+  if (window.innerWidth >= 768) return 'tablet';
+  return 'mobile';
+}
+
+function useViewportTier(): ViewportTier {
+  const [tier, setTier] = useState<ViewportTier>(getViewportTier);
 
   useEffect(() => {
-    const mq = window.matchMedia('(min-width: 1024px)');
-    const handleChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
-    setIsDesktop(mq.matches);
-    mq.addEventListener('change', handleChange);
-    return () => mq.removeEventListener('change', handleChange);
+    const handleResize = () => setTier(getViewportTier());
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  return isDesktop;
+  return tier;
 }
 
 export default function App() {
-  const isDesktop = useIsDesktop();
-  const [activeTab, setActiveTab] = useState<ActiveTab>('map');
+  const viewportTier = useViewportTier();
+  const [activeTab, setActiveTab] = useState<ActiveTab>('home');
   const [mobileScreen, setMobileScreen] = useState<MobileScreen>('home');
 
   // Dynamic lot list (base verified Phnom Penh dataset + optional Google Places live discoveries)
@@ -103,8 +117,19 @@ export default function App() {
   const [highlightSpacePanel, setHighlightSpacePanel] = useState(false);
   const [externalRouteRequest, setExternalRouteRequest] = useState<{
     lot: ParkingLot;
+    origin?: google.maps.LatLngLiteral;
+    note?: string;
     seq: number;
   } | null>(null);
+  const [driveVehicle, setDriveVehicle] = useState<DriveVehicleMode | null>(() => {
+    const saved = loadFromStorage<DriveVehicleMode | null>(
+      STORAGE_KEYS.driveVehicle,
+      null
+    );
+    return saved === 'car' || saved === 'motorcycle' ? saved : null;
+  });
+  const [vehiclePromptOpen, setVehiclePromptOpen] = useState(false);
+  const [findingNearest, setFindingNearest] = useState(false);
 
   // Persisted user data
   const [bookings, setBookings] = useState<BookingRecord[]>(() =>
@@ -184,6 +209,21 @@ export default function App() {
       // ignore quota errors
     }
   }, [priceReports]);
+
+  useEffect(() => {
+    try {
+      if (driveVehicle) {
+        window.localStorage.setItem(
+          STORAGE_KEYS.driveVehicle,
+          JSON.stringify(driveVehicle)
+        );
+      } else {
+        window.localStorage.removeItem(STORAGE_KEYS.driveVehicle);
+      }
+    } catch {
+      // ignore quota errors
+    }
+  }, [driveVehicle]);
 
   const activeBookedBayKeys = useMemo(
     () => getActiveBookedBayKeys(bookings),
@@ -326,12 +366,6 @@ export default function App() {
     setNearUserOnly(false);
   }, []);
 
-  const handleCyclePreviousLot = () => {
-    const idx = allLots.findIndex((l) => l.id === selectedLot.id);
-    const prevIdx = (idx - 1 + allLots.length) % allLots.length;
-    handleSelectLot(allLots[prevIdx].id, false);
-  };
-
   const handleToggleFavorite = (lotId: string) => {
     setFavoriteIds((prev) =>
       prev.includes(lotId) ? prev.filter((id) => id !== lotId) : [...prev, lotId]
@@ -384,6 +418,74 @@ export default function App() {
     setPriceReports((prev) => [report, ...prev]);
   };
 
+  const routeToNearestForVehicle = useCallback(
+    (vehicle: DriveVehicleMode) => {
+      const dispatchRoute = (
+        origin: google.maps.LatLngLiteral,
+        usedGps: boolean
+      ) => {
+        const nearest = findNearestCompatibleParking(allLots, origin, vehicle);
+        setFindingNearest(false);
+        if (!nearest) return;
+
+        handleSelectLot(nearest.lot.id, false);
+        setActiveTab('map');
+        const modeWord = vehicle === 'motorcycle' ? 'Moto' : 'Car';
+        const originNote = usedGps
+          ? 'your GPS location'
+          : 'central Phnom Penh (enable GPS for exact origin)';
+        setExternalRouteRequest((prev) => ({
+          lot: nearest.lot,
+          origin,
+          note: `Nearest ${modeWord} parking: ${nearest.lot.name} (${nearest.distanceKm.toFixed(1)} km from ${originNote}).`,
+          seq: (prev?.seq ?? 0) + 1,
+        }));
+      };
+
+      if (typeof navigator !== 'undefined' && navigator.geolocation) {
+        setFindingNearest(true);
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const coords = {
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+            };
+            setUserPosition(coords);
+            dispatchRoute(coords, true);
+          },
+          () => {
+            dispatchRoute(userPosition ?? PHNOM_PENH_CENTER, Boolean(userPosition));
+          },
+          { enableHighAccuracy: true, timeout: 5000 }
+        );
+      } else {
+        dispatchRoute(userPosition ?? PHNOM_PENH_CENTER, Boolean(userPosition));
+      }
+    },
+    [allLots, handleSelectLot, userPosition]
+  );
+
+  const handleRequestNearestDrive = useCallback(() => {
+    if (!driveVehicle) {
+      setVehiclePromptOpen(true);
+      return;
+    }
+    routeToNearestForVehicle(driveVehicle);
+  }, [driveVehicle, routeToNearestForVehicle]);
+
+  const handleSelectDriveVehicle = useCallback(
+    (vehicle: DriveVehicleMode) => {
+      setDriveVehicle(vehicle);
+      setVehiclePromptOpen(false);
+      routeToNearestForVehicle(vehicle);
+    },
+    [routeToNearestForVehicle]
+  );
+
+  const handleChangeDriveVehicle = useCallback((vehicle: DriveVehicleMode) => {
+    setDriveVehicle(vehicle);
+  }, []);
+
   const handleTabChange = (tab: ActiveTab) => {
     setActiveTab(tab);
     if (tab === 'home') {
@@ -391,10 +493,11 @@ export default function App() {
     }
   };
 
-  const showMobileBottomBar = activeTab !== 'home' || mobileScreen === 'home';
+  const showMobileBottomBar =
+    viewportTier === 'mobile' && (activeTab !== 'home' || mobileScreen === 'home');
 
   return (
-    <div className="min-h-screen flex flex-col bg-white lg:bg-[#F6F8F3] text-[#141517]">
+    <div className="min-h-dvh flex flex-col bg-[#F6F8F3] text-[#141517]">
       {mapsQuotaExceeded && (
         <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm">
           <span>
@@ -403,19 +506,38 @@ export default function App() {
         </div>
       )}
 
-      {/* Desktop Top Bar */}
+      {/* Tablet & Desktop Top Bar */}
       <DesktopTopBar
         activeTab={activeTab}
         onSelectTab={handleTabChange}
         activeBookingCount={activeBookingCount}
+        favoriteCount={favoriteIds.length}
         onQuickBook={() => {
           setActiveTab('home');
           handleOpenBookingModal();
         }}
       />
 
+      {/* Mobile Compact Header + Hamburger Drawer */}
+      <MobileTopHeader
+        activeTab={activeTab}
+        onSelectTab={handleTabChange}
+        activeBookingCount={activeBookingCount}
+        favoriteCount={favoriteIds.length}
+        totalLocationCount={allLots.length}
+        selectedLotName={selectedLot.name}
+        onQuickBook={() => {
+          setActiveTab('home');
+          handleOpenBookingModal();
+        }}
+        onOpenBayDemo={() => {
+          setActiveTab('home');
+          setMobileScreen('select-space');
+        }}
+      />
+
       {/* Main Content Area */}
-      <main className="flex-1 w-full lg:py-4">
+      <main className="flex-1 w-full md:py-4">
         {activeTab === 'map' && (
           <MapExplorerView
             allLots={allLots}
@@ -444,74 +566,17 @@ export default function App() {
             onOpenDetails={(id) => setDrawerLotId(id)}
             onMergeGooglePlacesLots={handleMergeGooglePlacesLots}
             externalRouteRequest={externalRouteRequest}
+            driveVehicle={driveVehicle}
+            findingNearest={findingNearest}
+            onRequestNearestDrive={handleRequestNearestDrive}
+            onChangeDriveVehicle={handleChangeDriveVehicle}
           />
         )}
 
-        {activeTab === 'home' && isDesktop && (
-          <div className="max-w-[1380px] mx-auto px-8 space-y-6">
-            <div className="grid grid-cols-12 gap-6 items-stretch h-[calc(100vh-116px)] min-h-[690px] max-h-[820px]">
-              <div className="col-span-4 min-h-0 flex flex-col">
-                <DiscoverPanel
-                  lots={filteredDemoLots}
-                  selectedLotId={selectedLot.id}
-                  searchQuery={searchQuery}
-                  onSearchChange={setSearchQuery}
-                  activeCategory={activeCategory}
-                  onCategoryChange={setActiveCategory}
-                  showAll={showAllLots}
-                  onToggleShowAll={() => setShowAllLots((prev) => !prev)}
-                  activeBookedBayKeys={activeBookedBayKeys}
-                  onSelectLot={(id) => handleSelectLot(id, false)}
-                  onOpenProfile={() => setActiveTab('settings')}
-                />
-              </div>
-
-              <div className="col-span-4 min-h-0 flex flex-col">
-                <DetailsPanel
-                  lot={selectedLot}
-                  isFavorite={favoriteSet.has(selectedLot.id)}
-                  onToggleFavorite={handleToggleFavorite}
-                  activeBookedBayKeys={activeBookedBayKeys}
-                  onBack={handleCyclePreviousLot}
-                  onSelectSpace={handleSelectSpaceAction}
-                  onOpenOnMap={(id) => {
-                    handleSelectLot(id, false);
-                    setActiveTab('map');
-                  }}
-                  isDesktop
-                />
-              </div>
-
-              <div ref={spaceColumnRef} className="col-span-4 min-h-0 flex flex-col">
-                <SpaceSelectorPanel
-                  lot={selectedLot}
-                  activeFloor={activeFloor}
-                  onFloorChange={setActiveFloor}
-                  selectedBayId={selectedBayId}
-                  onSelectBay={(bay) => setSelectedBayId(bay.id)}
-                  activeBookedBayKeys={activeBookedBayKeys}
-                  onBack={handleCyclePreviousLot}
-                  onBookNow={handleOpenBookingModal}
-                  highlighted={highlightSpacePanel}
-                  isDesktop
-                />
-              </div>
-            </div>
-
-            <DailyRatesChart
-              lots={allLots}
-              selectedLotId={selectedLot.id}
-              activeBookedBayKeys={activeBookedBayKeys}
-              referencePosition={userPosition}
-              onSelectLot={(id) => handleSelectLot(id, false)}
-            />
-          </div>
-        )}
-
-        {activeTab === 'home' && !isDesktop && (
-          <div className="max-w-[520px] mx-auto min-h-screen bg-white">
+        {activeTab === 'home' && (
+          <div className="w-full max-w-[1440px] 2xl:max-w-[1600px] mx-auto md:px-4 lg:px-6 xl:px-8">
             {mobileScreen === 'home' && (
-              <div key="mobile-home" className="min-h-screen screen-enter">
+              <div key="home-discover" className="screen-enter pb-24 md:pb-8 space-y-5 lg:space-y-6">
                 <DiscoverPanel
                   lots={filteredDemoLots}
                   selectedLotId={selectedLot.id}
@@ -524,12 +589,67 @@ export default function App() {
                   activeBookedBayKeys={activeBookedBayKeys}
                   onSelectLot={(id) => handleSelectLot(id, true)}
                   onOpenProfile={() => setActiveTab('settings')}
+                  driveVehicle={driveVehicle}
+                  findingNearest={findingNearest}
+                  onRequestNearestDrive={handleRequestNearestDrive}
+                  onChangeDriveVehicle={handleChangeDriveVehicle}
                 />
+                <div className="px-3.5 sm:px-0">
+                  <DailyRatesChart
+                    lots={allLots}
+                    selectedLotId={selectedLot.id}
+                    activeBookedBayKeys={activeBookedBayKeys}
+                    referencePosition={userPosition}
+                    onSelectLot={(id) => handleSelectLot(id, true)}
+                    compact={viewportTier === 'mobile'}
+                  />
+                </div>
               </div>
             )}
 
-            {mobileScreen === 'details' && (
-              <div key="mobile-details" className="min-h-screen screen-enter">
+            {mobileScreen !== 'home' && viewportTier !== 'mobile' && (
+              <div
+                key="home-inspector-desktop"
+                className="grid grid-cols-1 md:grid-cols-12 gap-5 items-stretch md:h-[clamp(580px,calc(100dvh-108px),820px)] screen-enter"
+              >
+                <div className="md:col-span-6 min-h-0 flex flex-col">
+                  <DetailsPanel
+                    lot={selectedLot}
+                    isFavorite={favoriteSet.has(selectedLot.id)}
+                    onToggleFavorite={handleToggleFavorite}
+                    activeBookedBayKeys={activeBookedBayKeys}
+                    onBack={() => setMobileScreen('home')}
+                    onSelectSpace={handleSelectSpaceAction}
+                    onOpenOnMap={(id) => {
+                      handleSelectLot(id, false);
+                      setActiveTab('map');
+                    }}
+                    isDesktop
+                  />
+                </div>
+
+                <div ref={spaceColumnRef} className="md:col-span-6 min-h-0 flex flex-col">
+                  <SpaceSelectorPanel
+                    lot={selectedLot}
+                    activeFloor={activeFloor}
+                    onFloorChange={setActiveFloor}
+                    selectedBayId={selectedBayId}
+                    onSelectBay={(bay) => setSelectedBayId(bay.id)}
+                    activeBookedBayKeys={activeBookedBayKeys}
+                    onBack={() => setMobileScreen('home')}
+                    onBookNow={handleOpenBookingModal}
+                    highlighted={highlightSpacePanel}
+                    isDesktop
+                  />
+                </div>
+              </div>
+            )}
+
+            {mobileScreen === 'details' && viewportTier === 'mobile' && (
+              <div
+                key="home-details"
+                className="min-h-[calc(100dvh-56px)] screen-enter"
+              >
                 <DetailsPanel
                   lot={selectedLot}
                   isFavorite={favoriteSet.has(selectedLot.id)}
@@ -545,8 +665,12 @@ export default function App() {
               </div>
             )}
 
-            {mobileScreen === 'select-space' && (
-              <div key="mobile-select-space" className="min-h-screen screen-enter">
+            {mobileScreen === 'select-space' && viewportTier === 'mobile' && (
+              <div
+                key="home-select-space"
+                ref={spaceColumnRef}
+                className="min-h-[calc(100dvh-56px)] screen-enter"
+              >
                 <SpaceSelectorPanel
                   lot={selectedLot}
                   activeFloor={activeFloor}
@@ -556,6 +680,7 @@ export default function App() {
                   activeBookedBayKeys={activeBookedBayKeys}
                   onBack={() => setMobileScreen('details')}
                   onBookNow={handleOpenBookingModal}
+                  highlighted={highlightSpacePanel}
                 />
               </div>
             )}
@@ -633,6 +758,13 @@ export default function App() {
         onClose={() => setBookingModalOpen(false)}
         onConfirmBooking={handleConfirmBooking}
         onViewBookings={() => setActiveTab('settings')}
+      />
+
+      {/* First-Time Vehicle Selection Prompt for Nearest Parking & Drive */}
+      <DriveVehicleModal
+        isOpen={vehiclePromptOpen}
+        onSelectVehicle={handleSelectDriveVehicle}
+        onClose={() => setVehiclePromptOpen(false)}
       />
     </div>
   );

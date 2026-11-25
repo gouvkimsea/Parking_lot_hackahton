@@ -14,16 +14,24 @@ import {
   BatteryCharging,
   Bike,
   Car,
+  ChevronDown,
+  ChevronUp,
+  Columns2,
+  Compass,
   Crosshair,
+  ExternalLink,
   Filter,
   Layers,
+  List as ListIcon,
   Loader2,
+  Map as MapIcon,
   MapPin,
   Navigation,
+  PanelLeftClose,
+  PanelLeftOpen,
   RotateCcw,
   Route as RouteIcon,
   Search,
-  Sparkles,
   Star,
   X,
   Zap,
@@ -36,6 +44,7 @@ import {
 } from '../data/parkingLots';
 import type {
   AvailabilityStatus,
+  DriveVehicleMode,
   EvFilterMode,
   FacilityType,
   MarkerColorVariant,
@@ -47,6 +56,7 @@ import {
   AVAILABILITY_LABELS,
   FACILITY_TYPE_LABELS,
   VEHICLE_TYPE_LABELS,
+  buildGoogleMapsDirectionsUrl,
   calculateDistanceKm,
   getCompactPriceDisplay,
   getMarkerColorVariant,
@@ -78,7 +88,16 @@ interface MapExplorerViewProps {
   onSelectLot: (lotId: string) => void;
   onOpenDetails: (lotId: string) => void;
   onMergeGooglePlacesLots: (discovered: ParkingLot[]) => void;
-  externalRouteRequest: { lot: ParkingLot; seq: number } | null;
+  externalRouteRequest: {
+    lot: ParkingLot;
+    origin?: google.maps.LatLngLiteral;
+    note?: string;
+    seq: number;
+  } | null;
+  driveVehicle: DriveVehicleMode | null;
+  findingNearest: boolean;
+  onRequestNearestDrive: () => void;
+  onChangeDriveVehicle: (vehicle: DriveVehicleMode) => void;
 }
 
 const VEHICLE_FILTER_OPTIONS: Array<{ id: VehicleCategory | 'all'; label: string }> = [
@@ -894,6 +913,10 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
   onOpenDetails,
   onMergeGooglePlacesLots,
   externalRouteRequest,
+  driveVehicle,
+  findingNearest,
+  onRequestNearestDrive,
+  onChangeDriveVehicle,
 }) => {
   const [mapType, setMapType] = useState<'roadmap' | 'hybrid'>('roadmap');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -919,6 +942,19 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
   } | null>(null);
   const [routeSummary, setRouteSummary] = useState<RouteSummary | null>(null);
   const [recenterSeq, setRecenterSeq] = useState(0);
+  // Responsive layout controls across mobile (<768), tablet (768-1023), and desktop (1024+)
+  const [mobileViewMode, setMobileViewMode] = useState<'map' | 'list'>('map');
+  const [mobileSheetState, setMobileSheetState] = useState<
+    'peek' | 'expanded' | 'minimized'
+  >('peek');
+  const [tabletLayoutMode, setTabletLayoutMode] = useState<
+    'split' | 'map' | 'list'
+  >('split');
+  const [desktopPanelMode, setDesktopPanelMode] = useState<
+    'standard' | 'wide' | 'collapsed'
+  >('standard');
+  const [showMobileLegend, setShowMobileLegend] = useState(false);
+  const sheetTouchStartY = useRef<number | null>(null);
 
   useEffect(() => {
     const handleQuota = () => setUseOsmFallback(true);
@@ -947,14 +983,16 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
 
   useEffect(() => {
     if (!externalRouteRequest) return;
-    setStatusMessage(null);
+    setStatusMessage(externalRouteRequest.note ?? null);
+    setMobileViewMode('map');
+    setMobileSheetState('peek');
     setFocusLotTrigger((prev) => ({
       lot: externalRouteRequest.lot,
       seq: (prev?.seq ?? 0) + 1,
     }));
     setRouteTrigger((prev) => ({
       lot: externalRouteRequest.lot,
-      origin: userPosition ?? PHNOM_PENH_CENTER,
+      origin: externalRouteRequest.origin ?? userPosition ?? PHNOM_PENH_CENTER,
       seq: (prev?.seq ?? 0) + 1,
     }));
   }, [externalRouteRequest, userPosition]);
@@ -1058,38 +1096,645 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
     [onMergeGooglePlacesLots]
   );
 
+
+  const handleSheetTouchStart = (e: React.TouchEvent) => {
+    sheetTouchStartY.current = e.touches[0]?.clientY ?? null;
+  };
+
+  const handleSheetTouchEnd = (e: React.TouchEvent) => {
+    if (sheetTouchStartY.current === null) return;
+    const endY = e.changedTouches[0]?.clientY ?? sheetTouchStartY.current;
+    const deltaY = endY - sheetTouchStartY.current;
+    sheetTouchStartY.current = null;
+    if (deltaY < -36) {
+      setMobileSheetState((prev) => (prev === 'minimized' ? 'peek' : 'expanded'));
+    } else if (deltaY > 36) {
+      setMobileSheetState((prev) => (prev === 'expanded' ? 'peek' : 'minimized'));
+    }
+  };
+
+  const renderFilterDrawerContent = () => (
+    <div className="space-y-2.5">
+      {/* Quick Neighborhood Selector */}
+      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+        {PHNOM_PENH_DISTRICTS.map((district) => {
+          const active = selectedDistrict === district;
+          return (
+            <button
+              key={district}
+              type="button"
+              onClick={() => onDistrictChange(district)}
+              className={`min-h-[38px] lg:min-h-[34px] px-3 py-1.5 rounded-full text-[12px] whitespace-nowrap shrink-0 transition-colors ${
+                active
+                  ? 'bg-[#141517] text-white font-semibold'
+                  : 'bg-[#F4F5F6] text-[#525760] hover:text-[#141517] font-medium'
+              }`}
+            >
+              {district}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Quick Vehicle Type Pills */}
+      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+        {VEHICLE_FILTER_OPTIONS.map((opt) => {
+          const active = vehicleType === opt.id;
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => onVehicleTypeChange(opt.id)}
+              className={`min-h-[38px] lg:min-h-[34px] px-3 py-1.5 rounded-full text-[12px] whitespace-nowrap shrink-0 transition-all ${
+                active
+                  ? 'bg-[#C5EC45] text-[#141517] font-semibold'
+                  : 'bg-[#F4F5F6] text-[#525760] hover:text-[#141517] font-medium'
+              }`}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Dedicated EV Sub-Filter Bar */}
+      {showEvSubFilters && (
+        <div className="bg-cyan-50/70 border border-cyan-200 rounded-2xl p-2.5 flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] font-bold text-cyan-900 inline-flex items-center gap-1 mr-1">
+            <BatteryCharging className="w-3.5 h-3.5" />
+            EV Filter:
+          </span>
+          {EV_FILTER_OPTIONS.map((opt) => {
+            const active = evFilter === opt.id;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => onEvFilterChange(opt.id)}
+                className={`min-h-[36px] px-2.5 py-1 rounded-full text-[11.5px] font-medium transition-colors ${
+                  active
+                    ? 'bg-cyan-600 text-white font-semibold'
+                    : 'bg-white text-cyan-900 hover:bg-cyan-100'
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Collapsible Price, Type, Availability & Near Me Filter Grid */}
+      {showAdvancedFilters && (
+        <div className="bg-[#F6F7F8] rounded-2xl p-3 space-y-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div>
+              <label
+                htmlFor="filter-price-bracket"
+                className="block text-[11px] font-semibold text-[#525760] mb-1"
+              >
+                Parking Price
+              </label>
+              <select
+                id="filter-price-bracket"
+                value={priceBracket}
+                onChange={(e) =>
+                  onPriceBracketChange(e.target.value as PriceBracketFilter)
+                }
+                className="w-full h-10 px-2.5 rounded-xl bg-white text-[12px] text-[#141517] border border-black/10 focus:outline-none focus:ring-2 focus:ring-[#C5EC45]"
+              >
+                {PRICE_FILTER_OPTIONS.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label
+                htmlFor="filter-facility-type"
+                className="block text-[11px] font-semibold text-[#525760] mb-1"
+              >
+                Parking Type
+              </label>
+              <select
+                id="filter-facility-type"
+                value={facilityType}
+                onChange={(e) =>
+                  onFacilityTypeChange(e.target.value as FacilityType | 'all')
+                }
+                className="w-full h-10 px-2.5 rounded-xl bg-white text-[12px] text-[#141517] border border-black/10 focus:outline-none focus:ring-2 focus:ring-[#C5EC45]"
+              >
+                {FACILITY_TYPE_FILTER_OPTIONS.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label
+                htmlFor="filter-availability"
+                className="block text-[11px] font-semibold text-[#525760] mb-1"
+              >
+                Availability
+              </label>
+              <select
+                id="filter-availability"
+                value={availabilityFilter}
+                onChange={(e) =>
+                  onAvailabilityFilterChange(
+                    e.target.value as AvailabilityStatus | 'all'
+                  )
+                }
+                className="w-full h-10 px-2.5 rounded-xl bg-white text-[12px] text-[#141517] border border-black/10 focus:outline-none focus:ring-2 focus:ring-[#C5EC45]"
+              >
+                {AVAILABILITY_FILTER_OPTIONS.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-2 flex-wrap pt-0.5">
+            <button
+              type="button"
+              onClick={() => {
+                if (!userPosition) {
+                  handleLocateMe();
+                  onNearUserOnlyChange(true);
+                } else {
+                  onNearUserOnlyChange(!nearUserOnly);
+                }
+              }}
+              className={`min-h-[40px] px-3.5 py-1.5 rounded-full text-[11.5px] font-semibold inline-flex items-center gap-1.5 transition-colors ${
+                nearUserOnly && userPosition
+                  ? 'bg-[#141517] text-white'
+                  : 'bg-white text-[#525760] border border-black/10 hover:text-[#141517]'
+              }`}
+            >
+              <Navigation className="w-3 h-3" />
+              Near My Location (≤ 3.5 km)
+            </button>
+
+            {activeFilterCount > 0 && (
+              <button
+                type="button"
+                onClick={onResetFilters}
+                className="min-h-[40px] px-2.5 inline-flex items-center gap-1 text-[11.5px] font-semibold text-[#525760] hover:text-[#141517]"
+              >
+                <RotateCcw className="w-3 h-3" />
+                Reset All
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderResultCards = (compactMode = false) =>
+    filteredLots.length === 0 ? (
+      <div className="bg-white rounded-[22px] p-6 sm:p-7 text-center space-y-3 border border-black/[0.04]">
+        <Search className="w-6 h-6 text-[#767B84] mx-auto" />
+        <div>
+          <p className="text-[14.5px] font-bold text-[#141517]">
+            No matching Phnom Penh facilities
+          </p>
+          <p className="text-[12.5px] text-[#767B84] mt-1">
+            Try clearing one of the neighborhood, price, or vehicle filters.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onResetFilters}
+          className="min-h-[44px] px-5 py-2 rounded-full bg-[#C5EC45] hover:bg-[#B6DE35] text-[#141517] text-[12.5px] font-semibold"
+        >
+          Reset All Filters
+        </button>
+      </div>
+    ) : (
+      filteredLots.map((lot) => {
+        const isSelected = lot.id === selectedLot?.id;
+        const priceDisplay = getCompactPriceDisplay(lot);
+        const distanceKm = userPosition
+          ? calculateDistanceKm(userPosition, lot.position)
+          : null;
+        const variant = getMarkerColorVariant(lot);
+
+        return (
+          <div
+            key={lot.id}
+            ref={(el) => {
+              listCardRefs.current[lot.id] = el;
+            }}
+            onClick={() => {
+              handleSelectFromList(lot);
+              if (compactMode) {
+                setMobileViewMode('map');
+                setMobileSheetState('peek');
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleSelectFromList(lot);
+                if (compactMode) {
+                  setMobileViewMode('map');
+                  setMobileSheetState('peek');
+                }
+              }
+            }}
+            className={`bg-white rounded-[20px] p-3.5 transition-all cursor-pointer border ${
+              isSelected
+                ? 'border-[#C5EC45] ring-2 ring-[#C5EC45] shadow-[0_8px_24px_rgba(20,21,23,0.08)]'
+                : 'border-black/[0.05] hover:border-black/15 shadow-[0_2px_10px_rgba(20,21,23,0.03)]'
+            }`}
+          >
+            <div className="flex items-start justify-between gap-2.5">
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span
+                    className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                      MARKER_LEGEND.find((m) => m.variant === variant)
+                        ?.dotClass ?? 'bg-blue-600'
+                    }`}
+                    aria-hidden="true"
+                  />
+                  <span className="text-[11px] font-semibold text-[#525760]">
+                    {FACILITY_TYPE_LABELS[lot.facilityType]}
+                  </span>
+                  <span className="text-[11px] text-[#9CA3AF]">·</span>
+                  <span className="text-[11px] font-medium text-[#767B84]">
+                    {lot.district}
+                  </span>
+                </div>
+                <h3 className="text-[14.5px] font-bold text-[#141517] mt-1 leading-snug">
+                  {lot.name}
+                </h3>
+                <p className="text-[12px] text-[#767B84] truncate mt-0.5">
+                  {lot.address}
+                </p>
+              </div>
+
+              <div className="text-right shrink-0">
+                <p
+                  className={`text-[13.5px] font-extrabold tabular-nums ${
+                    priceDisplay.status === 'unavailable'
+                      ? 'text-[#767B84] font-semibold text-[12px]'
+                      : priceDisplay.primaryText === 'Free parking'
+                        ? 'text-emerald-700'
+                        : 'text-[#141517]'
+                  }`}
+                >
+                  {priceDisplay.primaryText}
+                </p>
+                {priceDisplay.secondaryUsd && (
+                  <p className="text-[11px] text-[#767B84] tabular-nums">
+                    {priceDisplay.secondaryUsd}
+                  </p>
+                )}
+                <span
+                  className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                    priceDisplay.status === 'confirmed'
+                      ? 'bg-emerald-50 text-emerald-700'
+                      : priceDisplay.status === 'estimated'
+                        ? 'bg-amber-50 text-amber-700'
+                        : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {priceDisplay.status === 'confirmed'
+                    ? 'Confirmed'
+                    : priceDisplay.status === 'estimated'
+                      ? 'Estimated'
+                      : 'Unverified'}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-2.5 pt-2.5 border-t border-[#F4F5F6] flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2 text-[11.5px] text-[#525760] flex-wrap">
+                {lot.evCharging ? (
+                  <span className="inline-flex items-center gap-1 text-cyan-800 font-semibold bg-cyan-50 px-2 py-0.5 rounded-full">
+                    <Zap className="w-3 h-3" />
+                    {lot.evCharging.maxPowerKw
+                      ? `${lot.evCharging.maxPowerKw} kW`
+                      : lot.evCharging.speedTier === 'fast'
+                        ? 'Fast DC'
+                        : 'AC'}{' '}
+                    · {lot.evCharging.connectorTypes.join('/')}
+                  </span>
+                ) : (
+                  <>
+                    {lot.pricing.motorcycle?.khr !== undefined &&
+                      lot.pricing.motorcycle.khr !== null && (
+                        <span className="inline-flex items-center gap-1 tabular-nums">
+                          <Bike className="w-3.5 h-3.5" />
+                          Moto: {lot.pricing.motorcycle.khr.toLocaleString()} KHR
+                        </span>
+                      )}
+                    {lot.categories.includes('car') && (
+                      <span className="inline-flex items-center gap-1">
+                        <Car className="w-3.5 h-3.5" />
+                        Car
+                      </span>
+                    )}
+                  </>
+                )}
+                {distanceKm !== null && (
+                  <span className="font-semibold text-[#141517] tabular-nums">
+                    · {distanceKm.toFixed(1)} km
+                  </span>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelectLot(lot.id);
+                  onOpenDetails(lot.id);
+                }}
+                className="min-h-[38px] lg:min-h-[32px] px-3.5 py-1 rounded-full bg-[#C5EC45] hover:bg-[#B6DE35] text-[#141517] text-[12px] font-bold transition-colors"
+              >
+                View Details
+              </button>
+            </div>
+          </div>
+        );
+      })
+    );
+
+  const selectedPriceDisplay = selectedLot
+    ? getCompactPriceDisplay(selectedLot)
+    : null;
+  const selectedDistanceKm =
+    selectedLot && userPosition
+      ? calculateDistanceKm(userPosition, selectedLot.position)
+      : null;
+
+  const leftColClass =
+    desktopPanelMode === 'collapsed'
+      ? 'hidden'
+      : desktopPanelMode === 'wide'
+        ? 'lg:col-span-6'
+        : 'lg:col-span-5';
+
+  const rightColClass =
+    desktopPanelMode === 'collapsed'
+      ? 'lg:col-span-12'
+      : desktopPanelMode === 'wide'
+        ? 'lg:col-span-6'
+        : 'lg:col-span-7';
+
+  const showListSection =
+    tabletLayoutMode === 'list' ||
+    tabletLayoutMode === 'split' ||
+    mobileViewMode === 'list';
+
+  const showMapSection =
+    tabletLayoutMode === 'map' ||
+    tabletLayoutMode === 'split' ||
+    mobileViewMode === 'map';
+
   return (
     <section
       aria-label="Phnom Penh Smart Parking & EV Map Discovery"
-      className="max-w-[1440px] mx-auto w-full px-3 sm:px-5 lg:px-8 pb-24 lg:pb-4"
+      className="max-w-[1440px] 2xl:max-w-[1600px] mx-auto w-full px-2.5 sm:px-4 lg:px-6 xl:px-8 pb-24 md:pb-6"
     >
-      {/* Split-Screen Interface: Left Search/Filter/List Panel | Right Interactive Google Map */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch lg:h-[calc(100vh-96px)] lg:min-h-[620px]">
-        {/* LEFT PANEL: Search, Filters & Synchronized Parking List */}
-        <div className="lg:col-span-5 bg-white rounded-[28px] shadow-[0_14px_40px_rgba(20,21,23,0.06)] border border-black/[0.04] flex flex-col min-h-[520px] lg:min-h-0 overflow-hidden">
-          {/* Search & Quick Filter Header */}
-          <div className="p-4 border-b border-[#F0F1F3] space-y-3 shrink-0">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <h1 className="text-[18px] font-extrabold tracking-[-0.02em] text-[#141517]">
-                  Phnom Penh Parking & EV
-                </h1>
-                <p className="text-[12px] text-[#767B84]">
-                  {filteredLots.length} verified locations across Phnom Penh
-                </p>
-              </div>
+      {/* Mobile (<768px) & Tablet (768-1023px) Top Control Bar: Search, Filters & View Mode Switcher */}
+      <div className="lg:hidden bg-white rounded-[22px] md:rounded-[26px] shadow-[0_8px_24px_rgba(20,21,23,0.05)] border border-black/[0.04] p-3 sm:p-3.5 mb-2.5 space-y-2.5">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="min-w-0">
+            <h1 className="text-[16px] sm:text-[17px] font-extrabold tracking-[-0.02em] text-[#141517] truncate">
+              Phnom Penh Parking & EV
+            </h1>
+            <p className="text-[11.5px] text-[#767B84] tabular-nums">
+              {filteredLots.length} locations
+              {activeFilterCount > 0 ? ` · ${activeFilterCount} filter${activeFilterCount === 1 ? '' : 's'}` : ''}
+            </p>
+          </div>
+
+          {/* Mobile Map/List Toggle */}
+          <div
+            role="group"
+            aria-label="Mobile discovery view mode"
+            className="md:hidden inline-flex items-center bg-[#F4F5F6] rounded-full p-1 gap-1 shrink-0"
+          >
+            <button
+              type="button"
+              onClick={() => setMobileViewMode('map')}
+              aria-pressed={mobileViewMode === 'map'}
+              className={`min-h-[38px] px-3 rounded-full text-[12px] font-semibold inline-flex items-center gap-1 transition-all ${
+                mobileViewMode === 'map'
+                  ? 'bg-[#C5EC45] text-[#141517] shadow-2xs'
+                  : 'text-[#525760]'
+              }`}
+            >
+              <MapIcon className="w-3.5 h-3.5" />
+              <span>Map</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileViewMode('list')}
+              aria-pressed={mobileViewMode === 'list'}
+              className={`min-h-[38px] px-3 rounded-full text-[12px] font-semibold inline-flex items-center gap-1 transition-all ${
+                mobileViewMode === 'list'
+                  ? 'bg-[#C5EC45] text-[#141517] shadow-2xs'
+                  : 'text-[#525760]'
+              }`}
+            >
+              <ListIcon className="w-3.5 h-3.5" />
+              <span>List ({filteredLots.length})</span>
+            </button>
+          </div>
+
+          {/* Tablet Split / Map / List Toggle */}
+          <div
+            role="group"
+            aria-label="Tablet map layout mode"
+            className="hidden md:inline-flex items-center bg-[#F4F5F6] rounded-full p-1 gap-1 shrink-0"
+          >
+            {(
+              [
+                { id: 'split', label: 'Split View' },
+                { id: 'map', label: 'Full Map' },
+                { id: 'list', label: `List (${filteredLots.length})` },
+              ] as const
+            ).map((mode) => (
               <button
+                key={mode.id}
                 type="button"
-                onClick={() => setShowAdvancedFilters((prev) => !prev)}
-                className={`h-9 px-3.5 rounded-full text-[12.5px] font-semibold inline-flex items-center gap-1.5 transition-colors ${
-                  showAdvancedFilters || activeFilterCount > 0
-                    ? 'bg-[#C5EC45] text-[#141517]'
-                    : 'bg-[#F4F5F6] text-[#525760] hover:text-[#141517]'
+                onClick={() => setTabletLayoutMode(mode.id)}
+                aria-pressed={tabletLayoutMode === mode.id}
+                className={`min-h-[38px] px-3.5 rounded-full text-[12.5px] font-semibold transition-all ${
+                  tabletLayoutMode === mode.id
+                    ? 'bg-[#C5EC45] text-[#141517] shadow-2xs'
+                    : 'text-[#525760] hover:text-[#141517]'
                 }`}
               >
-                <Filter className="w-3.5 h-3.5" />
-                <span>Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}</span>
+                {mode.label}
               </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Mobile/Tablet Search + Filter Toggle */}
+        <form onSubmit={handleSearchSubmit} className="flex items-center gap-2">
+          <div className="relative flex-1 min-w-0">
+            <Search
+              className="w-4 h-4 text-[#767B84] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+              aria-hidden="true"
+            />
+            <label htmlFor="mobile-map-search-input" className="sr-only">
+              Search neighborhood, landmark, street, or parking
+            </label>
+            <input
+              id="mobile-map-search-input"
+              type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                onSearchChange(e.target.value);
+                if (!e.target.value.trim()) {
+                  setSearchedPlace(null);
+                  setStatusMessage(null);
+                }
+              }}
+              placeholder="Search BKK1, Toul Kork, AEON..."
+              className="w-full h-11 pl-9 pr-9 rounded-full bg-[#F4F5F6] text-[13.5px] text-[#141517] placeholder:text-[#8E939B] focus:outline-none focus:ring-2 focus:ring-[#C5EC45] focus:bg-white transition-all"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => {
+                  onSearchChange('');
+                  setSearchedPlace(null);
+                  setStatusMessage(null);
+                }}
+                aria-label="Clear search"
+                className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center text-[#767B84] hover:text-[#141517]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            className="h-11 px-3.5 rounded-full bg-[#141517] hover:bg-[#2A2D32] text-white text-[12.5px] font-semibold whitespace-nowrap shrink-0 transition-colors"
+          >
+            Locate
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowAdvancedFilters((prev) => !prev)}
+            aria-expanded={showAdvancedFilters}
+            className={`h-11 px-3 rounded-full text-[12.5px] font-semibold inline-flex items-center gap-1.5 shrink-0 transition-colors ${
+              showAdvancedFilters || activeFilterCount > 0
+                ? 'bg-[#C5EC45] text-[#141517]'
+                : 'bg-[#F4F5F6] text-[#525760]'
+            }`}
+          >
+            <Filter className="w-3.5 h-3.5" />
+            <span className="hidden min-[380px]:inline">Filters</span>
+            {activeFilterCount > 0 && (
+              <span className="tabular-nums">({activeFilterCount})</span>
+            )}
+          </button>
+        </form>
+
+        {/* Scrollable Quick Pills + Expandable Advanced Filter Grid on Mobile/Tablet */}
+        <div className="max-h-[48dvh] overflow-y-auto clean-scroll">
+          {renderFilterDrawerContent()}
+        </div>
+
+        {statusMessage && (
+          <p role="status" className="text-[12px] text-[#525760] px-1">
+            {statusMessage}
+          </p>
+        )}
+      </div>
+
+      {/* Responsive Workspace Grid: Desktop Split-Screen (lg+) | Tablet Adjustable Split | Mobile Map+Sheet or List */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-4 items-stretch lg:h-[calc(100dvh-96px)] lg:min-h-[540px]">
+        {/* DESKTOP LEFT PANEL (lg+) OR MOBILE/TABLET LIST */}
+        <div
+          className={`${leftColClass} ${
+            desktopPanelMode !== 'collapsed' ? 'lg:flex' : 'lg:hidden'
+          } ${
+            showListSection ? 'flex' : 'hidden'
+          } bg-white rounded-[24px] lg:rounded-[28px] shadow-[0_14px_40px_rgba(20,21,23,0.06)] border border-black/[0.04] flex-col ${
+            tabletLayoutMode === 'split'
+              ? 'md:max-h-[42dvh] lg:max-h-none'
+              : ''
+          } min-h-[360px] lg:min-h-0 overflow-hidden order-2 lg:order-1`}
+        >
+          {/* Desktop Search & Filter Header */}
+          <div className="hidden lg:block p-4 border-b border-[#F0F1F3] space-y-3 shrink-0">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <h1 className="text-[18px] font-extrabold tracking-[-0.02em] text-[#141517] truncate">
+                  Phnom Penh Parking & EV
+                </h1>
+                <p className="text-[12px] text-[#767B84] tabular-nums">
+                  {filteredLots.length} locations in Phnom Penh
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowAdvancedFilters((prev) => !prev)}
+                  className={`h-9 px-3 rounded-full text-[12px] font-semibold inline-flex items-center gap-1.5 transition-colors ${
+                    showAdvancedFilters || activeFilterCount > 0
+                      ? 'bg-[#C5EC45] text-[#141517]'
+                      : 'bg-[#F4F5F6] text-[#525760] hover:text-[#141517]'
+                  }`}
+                >
+                  <Filter className="w-3.5 h-3.5" />
+                  <span>Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDesktopPanelMode((prev) =>
+                      prev === 'wide' ? 'standard' : 'wide'
+                    )
+                  }
+                  aria-label={
+                    desktopPanelMode === 'wide'
+                      ? 'Use standard list width'
+                      : 'Widen results panel'
+                  }
+                  title={
+                    desktopPanelMode === 'wide'
+                      ? 'Standard panel width'
+                      : 'Widen results panel'
+                  }
+                  className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
+                    desktopPanelMode === 'wide'
+                      ? 'bg-[#141517] text-white'
+                      : 'bg-[#F4F5F6] text-[#525760] hover:text-[#141517]'
+                  }`}
+                >
+                  <Columns2 className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDesktopPanelMode('collapsed')}
+                  aria-label="Collapse results panel for full map"
+                  title="Collapse results panel"
+                  className="w-9 h-9 rounded-full bg-[#F4F5F6] text-[#525760] hover:text-[#141517] flex items-center justify-center transition-colors"
+                >
+                  <PanelLeftClose className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             {/* Search Bar */}
@@ -1139,185 +1784,7 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
               </button>
             </form>
 
-            {/* Quick Neighborhood Selector */}
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-              {PHNOM_PENH_DISTRICTS.map((district) => {
-                const active = selectedDistrict === district;
-                return (
-                  <button
-                    key={district}
-                    type="button"
-                    onClick={() => onDistrictChange(district)}
-                    className={`px-3 py-1.5 rounded-full text-[12px] whitespace-nowrap shrink-0 transition-colors ${
-                      active
-                        ? 'bg-[#141517] text-white font-semibold'
-                        : 'bg-[#F4F5F6] text-[#525760] hover:text-[#141517] font-medium'
-                    }`}
-                  >
-                    {district}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Quick Vehicle Type Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-              {VEHICLE_FILTER_OPTIONS.map((opt) => {
-                const active = vehicleType === opt.id;
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => onVehicleTypeChange(opt.id)}
-                    className={`px-3 py-1.5 rounded-full text-[12px] whitespace-nowrap shrink-0 transition-all ${
-                      active
-                        ? 'bg-[#C5EC45] text-[#141517] font-semibold'
-                        : 'bg-[#F4F5F6] text-[#525760] hover:text-[#141517] font-medium'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Dedicated EV Sub-Filter Bar */}
-            {showEvSubFilters && (
-              <div className="bg-cyan-50/70 border border-cyan-200 rounded-2xl p-2.5 flex flex-wrap items-center gap-1.5">
-                <span className="text-[11px] font-bold text-cyan-900 inline-flex items-center gap-1 mr-1">
-                  <BatteryCharging className="w-3.5 h-3.5" />
-                  EV Filter:
-                </span>
-                {EV_FILTER_OPTIONS.map((opt) => {
-                  const active = evFilter === opt.id;
-                  return (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => onEvFilterChange(opt.id)}
-                      className={`px-2.5 py-1 rounded-full text-[11.5px] font-medium transition-colors ${
-                        active
-                          ? 'bg-cyan-600 text-white font-semibold'
-                          : 'bg-white text-cyan-900 hover:bg-cyan-100'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Collapsible Price, Type, Availability & Near Me Filter Grid */}
-            {showAdvancedFilters && (
-              <div className="bg-[#F6F7F8] rounded-2xl p-3 space-y-2.5">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <div>
-                    <label
-                      htmlFor="filter-price-bracket"
-                      className="block text-[11px] font-semibold text-[#525760] mb-1"
-                    >
-                      Parking Price
-                    </label>
-                    <select
-                      id="filter-price-bracket"
-                      value={priceBracket}
-                      onChange={(e) =>
-                        onPriceBracketChange(e.target.value as PriceBracketFilter)
-                      }
-                      className="w-full h-9 px-2.5 rounded-xl bg-white text-[12px] text-[#141517] border border-black/10 focus:outline-none focus:ring-2 focus:ring-[#C5EC45]"
-                    >
-                      {PRICE_FILTER_OPTIONS.map((o) => (
-                        <option key={o.id} value={o.id}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="filter-facility-type"
-                      className="block text-[11px] font-semibold text-[#525760] mb-1"
-                    >
-                      Parking Type
-                    </label>
-                    <select
-                      id="filter-facility-type"
-                      value={facilityType}
-                      onChange={(e) =>
-                        onFacilityTypeChange(e.target.value as FacilityType | 'all')
-                      }
-                      className="w-full h-9 px-2.5 rounded-xl bg-white text-[12px] text-[#141517] border border-black/10 focus:outline-none focus:ring-2 focus:ring-[#C5EC45]"
-                    >
-                      {FACILITY_TYPE_FILTER_OPTIONS.map((o) => (
-                        <option key={o.id} value={o.id}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="filter-availability"
-                      className="block text-[11px] font-semibold text-[#525760] mb-1"
-                    >
-                      Availability
-                    </label>
-                    <select
-                      id="filter-availability"
-                      value={availabilityFilter}
-                      onChange={(e) =>
-                        onAvailabilityFilterChange(
-                          e.target.value as AvailabilityStatus | 'all'
-                        )
-                      }
-                      className="w-full h-9 px-2.5 rounded-xl bg-white text-[12px] text-[#141517] border border-black/10 focus:outline-none focus:ring-2 focus:ring-[#C5EC45]"
-                    >
-                      {AVAILABILITY_FILTER_OPTIONS.map((o) => (
-                        <option key={o.id} value={o.id}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between gap-2 pt-0.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!userPosition) {
-                        handleLocateMe();
-                        onNearUserOnlyChange(true);
-                      } else {
-                        onNearUserOnlyChange(!nearUserOnly);
-                      }
-                    }}
-                    className={`px-3 py-1.5 rounded-full text-[11.5px] font-semibold inline-flex items-center gap-1.5 transition-colors ${
-                      nearUserOnly && userPosition
-                        ? 'bg-[#141517] text-white'
-                        : 'bg-white text-[#525760] border border-black/10 hover:text-[#141517]'
-                    }`}
-                  >
-                    <Navigation className="w-3 h-3" />
-                    Near My Location (≤ 3.5 km)
-                  </button>
-
-                  {activeFilterCount > 0 && (
-                    <button
-                      type="button"
-                      onClick={onResetFilters}
-                      className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-[#525760] hover:text-[#141517]"
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                      Reset All
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
+            {renderFilterDrawerContent()}
 
             {statusMessage && (
               <p role="status" className="text-[12px] text-[#525760] px-1">
@@ -1327,175 +1794,25 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
           </div>
 
           {/* Synchronized Parking & EV Results List */}
-          <div className="flex-1 min-h-0 overflow-y-auto clean-scroll p-3.5 space-y-2.5 bg-[#FAFAFA]">
-            {filteredLots.length === 0 ? (
-              <div className="bg-white rounded-[22px] p-7 text-center space-y-3 border border-black/[0.04]">
-                <Search className="w-6 h-6 text-[#767B84] mx-auto" />
-                <div>
-                  <p className="text-[14.5px] font-bold text-[#141517]">
-                    No matching Phnom Penh facilities
-                  </p>
-                  <p className="text-[12.5px] text-[#767B84] mt-1">
-                    Try clearing one of the neighborhood, price, or vehicle filters.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={onResetFilters}
-                  className="px-4 py-2 rounded-full bg-[#C5EC45] hover:bg-[#B6DE35] text-[#141517] text-[12.5px] font-semibold"
-                >
-                  Reset All Filters
-                </button>
-              </div>
-            ) : (
-              filteredLots.map((lot) => {
-                const isSelected = lot.id === selectedLot?.id;
-                const priceDisplay = getCompactPriceDisplay(lot);
-                const distanceKm = userPosition
-                  ? calculateDistanceKm(userPosition, lot.position)
-                  : null;
-                const variant = getMarkerColorVariant(lot);
-
-                return (
-                  <div
-                    key={lot.id}
-                    ref={(el) => {
-                      listCardRefs.current[lot.id] = el;
-                    }}
-                    onClick={() => handleSelectFromList(lot)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        handleSelectFromList(lot);
-                      }
-                    }}
-                    className={`bg-white rounded-[20px] p-3.5 transition-all cursor-pointer border ${
-                      isSelected
-                        ? 'border-[#C5EC45] ring-2 ring-[#C5EC45] shadow-[0_8px_24px_rgba(20,21,23,0.08)]'
-                        : 'border-black/[0.05] hover:border-black/15 shadow-[0_2px_10px_rgba(20,21,23,0.03)]'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2.5">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span
-                            className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                              MARKER_LEGEND.find((m) => m.variant === variant)
-                                ?.dotClass ?? 'bg-blue-600'
-                            }`}
-                            aria-hidden="true"
-                          />
-                          <span className="text-[11px] font-semibold text-[#525760]">
-                            {FACILITY_TYPE_LABELS[lot.facilityType]}
-                          </span>
-                          <span className="text-[11px] text-[#9CA3AF]">·</span>
-                          <span className="text-[11px] font-medium text-[#767B84]">
-                            {lot.district}
-                          </span>
-                        </div>
-                        <h3 className="text-[14.5px] font-bold text-[#141517] mt-1 leading-snug">
-                          {lot.name}
-                        </h3>
-                        <p className="text-[12px] text-[#767B84] truncate mt-0.5">
-                          {lot.address}
-                        </p>
-                      </div>
-
-                      <div className="text-right shrink-0">
-                        <p
-                          className={`text-[13.5px] font-extrabold tabular-nums ${
-                            priceDisplay.status === 'unavailable'
-                              ? 'text-[#767B84] font-semibold text-[12px]'
-                              : priceDisplay.primaryText === 'Free parking'
-                                ? 'text-emerald-700'
-                                : 'text-[#141517]'
-                          }`}
-                        >
-                          {priceDisplay.primaryText}
-                        </p>
-                        {priceDisplay.secondaryUsd && (
-                          <p className="text-[11px] text-[#767B84] tabular-nums">
-                            {priceDisplay.secondaryUsd}
-                          </p>
-                        )}
-                        <span
-                          className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                            priceDisplay.status === 'confirmed'
-                              ? 'bg-emerald-50 text-emerald-700'
-                              : priceDisplay.status === 'estimated'
-                                ? 'bg-amber-50 text-amber-700'
-                                : 'bg-gray-100 text-gray-600'
-                          }`}
-                        >
-                          {priceDisplay.status === 'confirmed'
-                            ? 'Confirmed'
-                            : priceDisplay.status === 'estimated'
-                              ? 'Estimated'
-                              : 'Unverified'}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* EV / Moto / Availability Quick Row */}
-                    <div className="mt-2.5 pt-2.5 border-t border-[#F4F5F6] flex items-center justify-between gap-2 flex-wrap">
-                      <div className="flex items-center gap-2 text-[11.5px] text-[#525760] flex-wrap">
-                        {lot.evCharging ? (
-                          <span className="inline-flex items-center gap-1 text-cyan-800 font-semibold bg-cyan-50 px-2 py-0.5 rounded-full">
-                            <Zap className="w-3 h-3" />
-                            {lot.evCharging.maxPowerKw
-                              ? `${lot.evCharging.maxPowerKw} kW`
-                              : lot.evCharging.speedTier === 'fast'
-                                ? 'Fast DC'
-                                : 'AC'}{' '}
-                            · {lot.evCharging.connectorTypes.join('/')}
-                          </span>
-                        ) : (
-                          <>
-                            {lot.pricing.motorcycle?.khr !== undefined &&
-                              lot.pricing.motorcycle.khr !== null && (
-                                <span className="inline-flex items-center gap-1 tabular-nums">
-                                  <Bike className="w-3.5 h-3.5" />
-                                  Moto: {lot.pricing.motorcycle.khr.toLocaleString()} KHR
-                                </span>
-                              )}
-                            {lot.categories.includes('car') && (
-                              <span className="inline-flex items-center gap-1">
-                                <Car className="w-3.5 h-3.5" />
-                                Car
-                              </span>
-                            )}
-                          </>
-                        )}
-                        {distanceKm !== null && (
-                          <span className="font-semibold text-[#141517] tabular-nums">
-                            · {distanceKm.toFixed(1)} km
-                          </span>
-                        )}
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onSelectLot(lot.id);
-                          onOpenDetails(lot.id);
-                        }}
-                        className="px-3 py-1 rounded-full bg-[#C5EC45] hover:bg-[#B6DE35] text-[#141517] text-[11.5px] font-bold transition-colors"
-                      >
-                        View Details
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
-            )}
+          <div className="flex-1 min-h-0 overflow-y-auto clean-scroll p-3 sm:p-3.5 space-y-2.5 bg-[#FAFAFA]">
+            {renderResultCards(mobileViewMode === 'list')}
           </div>
         </div>
 
         {/* RIGHT PANEL: Interactive Map Centered on Phnom Penh (Google Maps or Free OpenStreetMap) */}
-        <div className="lg:col-span-7 bg-white rounded-[28px] shadow-[0_14px_40px_rgba(20,21,23,0.06)] border border-black/[0.04] overflow-hidden flex flex-col min-h-[460px] lg:min-h-0">
+        <div
+          className={`${rightColClass} lg:flex ${
+            showMapSection ? 'flex' : 'hidden'
+          } bg-white rounded-[24px] lg:rounded-[28px] shadow-[0_14px_40px_rgba(20,21,23,0.06)] border border-black/[0.04] overflow-hidden flex-col relative isolate z-0 ${
+            mobileViewMode === 'map'
+              ? 'h-[max(270px,calc(100dvh-328px))] min-h-[270px] sm:h-[calc(100dvh-300px)] md:h-[46dvh] md:min-h-[360px]'
+              : 'md:h-[46dvh] md:min-h-[360px]'
+          } ${
+            tabletLayoutMode === 'map'
+              ? 'md:h-[calc(100dvh-220px)] md:min-h-[480px]'
+              : ''
+          } lg:h-full lg:min-h-0 order-1 lg:order-2`}
+        >
           <div className="relative flex-1 w-full bg-[#EEF2EB]">
             {MAPS_API_KEY && !useOsmFallback ? (
               <APIProvider
@@ -1545,84 +1862,186 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
               />
             )}
 
-            {/* Top-Left Map Utility Controls */}
-            <div className="absolute top-3.5 left-3.5 right-3.5 z-[400] flex items-center justify-between gap-2 pointer-events-none">
-              <div className="flex items-center gap-2 flex-wrap pointer-events-auto">
+            {/* Top Map Utility Controls (Single horizontally-scrollable row on narrow screens) */}
+            <div className="absolute top-2.5 sm:top-3.5 left-2.5 sm:left-3.5 right-2.5 sm:right-3.5 z-[400] flex items-center gap-2 overflow-x-auto no-scrollbar pointer-events-auto">
+              {desktopPanelMode === 'collapsed' && (
+                <button
+                  type="button"
+                  onClick={() => setDesktopPanelMode('standard')}
+                  className="hidden lg:inline-flex h-9 px-3 rounded-full bg-[#C5EC45] hover:bg-[#B6DE35] text-[#141517] text-[12px] font-bold shadow-md items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors"
+                >
+                  <PanelLeftOpen className="w-3.5 h-3.5" />
+                  <span>Show List ({filteredLots.length})</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={onRequestNearestDrive}
+                disabled={findingNearest}
+                data-testid="map-nearest-drive-btn"
+                className="min-h-[40px] lg:min-h-[36px] px-3 rounded-full bg-[#C5EC45] hover:bg-[#B6DE35] text-[#141517] text-[12px] font-bold shadow-md inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors disabled:opacity-75"
+              >
+                {findingNearest ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : driveVehicle === 'car' ? (
+                  <Car className="w-3.5 h-3.5" />
+                ) : driveVehicle === 'motorcycle' ? (
+                  <Bike className="w-3.5 h-3.5" />
+                ) : (
+                  <Navigation className="w-3.5 h-3.5" />
+                )}
+                <span>
+                  {driveVehicle === 'car'
+                    ? 'Drive Nearest'
+                    : driveVehicle === 'motorcycle'
+                      ? 'Ride Nearest'
+                      : 'Nearest & Drive'}
+                </span>
+              </button>
+
+              {driveVehicle !== null && (
                 <button
                   type="button"
                   onClick={() =>
-                    setMapType((prev) => (prev === 'roadmap' ? 'hybrid' : 'roadmap'))
+                    onChangeDriveVehicle(driveVehicle === 'car' ? 'motorcycle' : 'car')
                   }
-                  className="h-9 px-3 rounded-full bg-white/95 hover:bg-white text-[#141517] text-[12px] font-semibold shadow-md inline-flex items-center gap-1.5 transition-colors"
+                  aria-label={`Switch vehicle mode from ${driveVehicle === 'car' ? 'Car' : 'Moto'}`}
+                  title={`Saved: ${driveVehicle === 'car' ? 'Car' : 'Moto'} (tap to switch)`}
+                  className="min-h-[40px] lg:min-h-[36px] px-2.5 rounded-full bg-white/95 hover:bg-white text-[#141517] text-[11.5px] font-semibold shadow-md inline-flex items-center gap-1 whitespace-nowrap shrink-0 transition-colors"
                 >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>{mapType === 'roadmap' ? 'Satellite' : 'Map'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleLocateMe}
-                  disabled={locating}
-                  className="h-9 px-3 rounded-full bg-white/95 hover:bg-white text-[#141517] text-[12px] font-semibold shadow-md inline-flex items-center gap-1.5 transition-colors disabled:opacity-70"
-                >
-                  {locating ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  {driveVehicle === 'car' ? (
+                    <>
+                      <Car className="w-3.5 h-3.5" />
+                      <span>Car</span>
+                    </>
                   ) : (
-                    <Crosshair className="w-3.5 h-3.5" />
+                    <>
+                      <Bike className="w-3.5 h-3.5" />
+                      <span>Moto</span>
+                    </>
                   )}
-                  <span>My Location</span>
                 </button>
+              )}
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchedPlace(null);
-                    setStatusMessage(null);
-                    setRecenterSeq((s) => s + 1);
-                  }}
-                  className="h-9 px-3 rounded-full bg-white/95 hover:bg-white text-[#141517] text-[12px] font-semibold shadow-md inline-flex items-center gap-1.5 transition-colors"
-                >
-                  <Navigation className="w-3.5 h-3.5" />
-                  <span>Phnom Penh</span>
-                </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setMapType((prev) => (prev === 'roadmap' ? 'hybrid' : 'roadmap'))
+                }
+                className="min-h-[40px] lg:min-h-[36px] px-3 rounded-full bg-white/95 hover:bg-white text-[#141517] text-[12px] font-semibold shadow-md inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors"
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>{mapType === 'roadmap' ? 'Satellite' : 'Map'}</span>
+              </button>
 
-                <button
-                  type="button"
-                  onClick={() => setPlacesDiscoverySeq((s) => s + 1)}
-                  className="h-9 px-3 rounded-full bg-[#141517]/95 hover:bg-[#141517] text-white text-[12px] font-semibold shadow-md inline-flex items-center gap-1.5 transition-colors"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-[#C5EC45]" />
-                  <span>
-                    {MAPS_API_KEY && !useOsmFallback
-                      ? 'Scan Google Places'
-                      : 'Scan OpenStreetMap'}
-                  </span>
-                </button>
-
-                {MAPS_API_KEY && (
-                  <button
-                    type="button"
-                    onClick={() => setUseOsmFallback((prev) => !prev)}
-                    className="h-9 px-3 rounded-full bg-white/95 hover:bg-white text-[#525760] text-[11.5px] font-semibold shadow-md"
-                  >
-                    {useOsmFallback ? 'Use Google Maps' : 'Use OpenStreetMap'}
-                  </button>
+              <button
+                type="button"
+                onClick={handleLocateMe}
+                disabled={locating}
+                className="min-h-[40px] lg:min-h-[36px] px-3 rounded-full bg-white/95 hover:bg-white text-[#141517] text-[12px] font-semibold shadow-md inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors disabled:opacity-70"
+              >
+                {locating ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Crosshair className="w-3.5 h-3.5" />
                 )}
-              </div>
+                <span>My Location</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchedPlace(null);
+                  setStatusMessage(null);
+                  setRecenterSeq((s) => s + 1);
+                }}
+                className="min-h-[40px] lg:min-h-[36px] px-3 rounded-full bg-white/95 hover:bg-white text-[#141517] text-[12px] font-semibold shadow-md inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors"
+              >
+                <Navigation className="w-3.5 h-3.5" />
+                <span>Phnom Penh</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPlacesDiscoverySeq((s) => s + 1)}
+                className="min-h-[40px] lg:min-h-[36px] px-3 rounded-full bg-[#141517]/95 hover:bg-[#141517] text-white text-[12px] font-semibold shadow-md inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors"
+              >
+                <Compass className="w-3.5 h-3.5 text-[#C5EC45]" />
+                <span>
+                  {MAPS_API_KEY && !useOsmFallback
+                    ? 'Scan Google Places'
+                    : 'Scan OpenStreetMap'}
+                </span>
+              </button>
+
+              {MAPS_API_KEY && (
+                <button
+                  type="button"
+                  onClick={() => setUseOsmFallback((prev) => !prev)}
+                  className="min-h-[40px] lg:min-h-[36px] px-3 rounded-full bg-white/95 hover:bg-white text-[#525760] text-[11.5px] font-semibold shadow-md whitespace-nowrap shrink-0"
+                >
+                  {useOsmFallback ? 'Use Google Maps' : 'Use OpenStreetMap'}
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setShowMobileLegend((prev) => !prev)}
+                className="md:hidden min-h-[40px] px-3 rounded-full bg-white/95 text-[#525760] text-[11.5px] font-semibold shadow-md whitespace-nowrap shrink-0"
+              >
+                Legend
+              </button>
             </div>
 
-            {/* Route Summary Banner (when active) */}
-            {routeSummary && (
-              <div className="absolute top-16 left-3.5 z-[400] bg-[#141517] text-white px-3.5 py-2 rounded-full shadow-lg text-[12px] font-semibold flex items-center gap-2">
-                <RouteIcon className="w-3.5 h-3.5 text-[#C5EC45]" />
-                <span>
-                  Drive: {routeSummary.durationText} · {routeSummary.distanceText}
-                </span>
+            {/* Mobile Toggleable Legend Popover */}
+            {showMobileLegend && (
+              <div className="md:hidden absolute top-14 right-2.5 z-[420] bg-white/95 backdrop-blur-sm rounded-2xl p-3 shadow-lg border border-black/[0.06] space-y-1.5">
+                {MARKER_LEGEND.map((item) => (
+                  <div
+                    key={item.variant}
+                    className="flex items-center gap-2 text-[11.5px] font-semibold text-[#141517]"
+                  >
+                    <span className={`w-2.5 h-2.5 rounded-full ${item.dotClass}`} />
+                    <span>{item.label}</span>
+                  </div>
+                ))}
               </div>
             )}
 
-            {/* Bottom Marker Legend + Active Map Engine Badge */}
-            <div className="absolute bottom-3.5 left-3.5 right-3.5 z-[400] flex items-center justify-between gap-2 pointer-events-none">
+            {/* Route Summary Banner (when active) */}
+            {routeSummary && (
+              <div className="absolute top-14 sm:top-16 left-2.5 sm:left-3.5 z-[400] bg-[#141517] text-white px-3.5 py-2 rounded-full shadow-lg text-[12px] font-semibold flex items-center gap-2 max-w-[calc(100%-20px)]">
+                {driveVehicle === 'motorcycle' ? (
+                  <Bike className="w-3.5 h-3.5 text-[#C5EC45] shrink-0" />
+                ) : driveVehicle === 'car' ? (
+                  <Car className="w-3.5 h-3.5 text-[#C5EC45] shrink-0" />
+                ) : (
+                  <RouteIcon className="w-3.5 h-3.5 text-[#C5EC45] shrink-0" />
+                )}
+                <span className="truncate">
+                  {driveVehicle === 'motorcycle' ? 'Ride' : 'Drive'}: {routeSummary.durationText} · {routeSummary.distanceText}
+                </span>
+                {routeTrigger && (
+                  <a
+                    href={buildGoogleMapsDirectionsUrl(
+                      routeTrigger.origin,
+                      routeTrigger.lot.position,
+                      driveVehicle
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-1 px-2 py-0.5 rounded-full bg-[#C5EC45] text-[#141517] text-[11px] font-bold inline-flex items-center gap-1 shrink-0 hover:bg-[#B6DE35]"
+                  >
+                    <span>Go</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+              </div>
+            )}
+
+            {/* Tablet & Desktop Bottom Marker Legend */}
+            <div className="hidden md:flex absolute bottom-3.5 left-3.5 right-3.5 z-[400] items-center justify-between gap-2 pointer-events-none">
               <div className="bg-white/95 backdrop-blur-sm rounded-full px-3.5 py-2 shadow-md border border-black/[0.05] flex items-center gap-3 overflow-x-auto no-scrollbar pointer-events-auto">
                 {MARKER_LEGEND.map((item) => (
                   <div
@@ -1640,6 +2059,132 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
                 )}
               </div>
             </div>
+
+            {/* Mobile Draggable / Expandable Bottom Sheet Inside Map Frame */}
+            {selectedLot && (
+              <div
+                className={`md:hidden absolute bottom-2 left-2 right-2 z-[410] bg-white rounded-[22px] shadow-[0_12px_36px_rgba(20,21,23,0.18)] border border-black/[0.06] flex flex-col transition-all duration-200 ${
+                  mobileSheetState === 'expanded'
+                    ? 'max-h-[68%]'
+                    : mobileSheetState === 'minimized'
+                      ? ''
+                      : ''
+                }`}
+              >
+                {/* Drag Handle + Header Toggle */}
+                <div
+                  onTouchStart={handleSheetTouchStart}
+                  onTouchEnd={handleSheetTouchEnd}
+                  className="px-3.5 pt-2 pb-1.5 flex items-center justify-between gap-2 border-b border-black/[0.04]"
+                >
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setMobileSheetState((prev) =>
+                        prev === 'minimized'
+                          ? 'peek'
+                          : prev === 'peek'
+                            ? 'expanded'
+                            : 'peek'
+                      )
+                    }
+                    aria-label={
+                      mobileSheetState === 'expanded'
+                        ? 'Collapse bottom sheet'
+                        : 'Expand nearby parking sheet'
+                    }
+                    className="flex-1 min-h-[32px] flex items-center gap-2 text-left"
+                  >
+                    <span
+                      className="w-8 h-1 rounded-full bg-[#D1D5DB] shrink-0"
+                      aria-hidden="true"
+                    />
+                    <span className="text-[11px] font-semibold text-[#525760] truncate">
+                      {mobileSheetState === 'minimized'
+                        ? `${selectedLot.name} · ${selectedPriceDisplay?.primaryText ?? ''}`
+                        : `${filteredLots.length} Phnom Penh lots nearby`}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setMobileSheetState((prev) =>
+                        prev === 'minimized' ? 'peek' : 'minimized'
+                      )
+                    }
+                    aria-label={
+                      mobileSheetState === 'minimized'
+                        ? 'Show selected location card'
+                        : 'Minimize bottom sheet'
+                    }
+                    className="w-8 h-8 rounded-full bg-[#F4F5F6] text-[#141517] flex items-center justify-center shrink-0"
+                  >
+                    {mobileSheetState === 'minimized' ? (
+                      <ChevronUp className="w-4 h-4" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+
+                {mobileSheetState !== 'minimized' && (
+                  <div className="p-3 space-y-2.5 overflow-y-auto clean-scroll">
+                    {/* Active Selected Card */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold text-[#525760] truncate">
+                          {selectedLot.district} ·{' '}
+                          {FACILITY_TYPE_LABELS[selectedLot.facilityType]}
+                          {selectedDistanceKm !== null
+                            ? ` · ${selectedDistanceKm.toFixed(1)} km`
+                            : ''}
+                        </p>
+                        <h2 className="text-[14.5px] font-bold text-[#141517] truncate">
+                          {selectedLot.name}
+                        </h2>
+                      </div>
+                      {selectedPriceDisplay && (
+                        <div className="text-right shrink-0">
+                          <p className="text-[13px] font-extrabold text-[#141517] tabular-nums">
+                            {selectedPriceDisplay.primaryText}
+                          </p>
+                          {selectedPriceDisplay.secondaryUsd && (
+                            <p className="text-[10.5px] text-[#767B84] tabular-nums">
+                              {selectedPriceDisplay.secondaryUsd}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleRequestDirections(selectedLot)}
+                        className="min-h-[44px] rounded-full bg-[#141517] text-white text-[12.5px] font-semibold inline-flex items-center justify-center gap-1.5"
+                      >
+                        <Navigation className="w-3.5 h-3.5 text-[#C5EC45]" />
+                        <span>Route</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onOpenDetails(selectedLot.id)}
+                        className="min-h-[44px] rounded-full bg-[#C5EC45] text-[#141517] text-[12.5px] font-bold inline-flex items-center justify-center"
+                      >
+                        View Details
+                      </button>
+                    </div>
+
+                    {mobileSheetState === 'expanded' && (
+                      <div className="pt-2 border-t border-[#F0F1F3] space-y-2">
+                        {renderResultCards(true)}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

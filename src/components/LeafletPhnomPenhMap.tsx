@@ -435,7 +435,7 @@ export const LeafletPhnomPenhMap: React.FC<LeafletPhnomPenhMapProps> = ({
     if (searchedPlace) {
       const icon = L.divIcon({
         className: 'parkeasy-search-pin',
-        html: `<div style="padding:5px 11px;border-radius:9999px;background:#141517;color:#FFFFFF;font-family:'Plus Jakarta Sans',sans-serif;font-size:11.5px;font-weight:600;box-shadow:0 6px 16px rgba(0,0,0,0.28);white-space:nowrap;">📍 ${searchedPlace.name.replace(/</g, '&lt;')}</div>`,
+        html: `<div style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:9999px;background:#141517;color:#FFFFFF;font-family:'Plus Jakarta Sans',sans-serif;font-size:11.5px;font-weight:600;box-shadow:0 6px 16px rgba(0,0,0,0.28);white-space:nowrap;"><span style="width:7px;height:7px;border-radius:9999px;background:#C5EC45;display:inline-block;"></span>${searchedPlace.name.replace(/</g, '&lt;')}</div>`,
         iconSize: [0, 0],
         iconAnchor: [24, 14],
       });

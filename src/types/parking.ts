@@ -1,5 +1,7 @@
 export type VehicleCategory = 'car' | 'motorcycle' | 'bicycle' | 'ev';
 
+export type DriveVehicleMode = 'car' | 'motorcycle';
+
 export type FacilityType =
   | 'mall'
   | 'hotel'

@@ -1,6 +1,7 @@
 import type {
   AvailabilityStatus,
   BookingRecord,
+  DriveVehicleMode,
   EvFilterMode,
   FacilityType,
   FloorId,
@@ -188,6 +189,26 @@ export function findNearestParkingLot(
     }
   }
   return { lot: nearestLot, distanceKm: minDistance };
+}
+
+export function findNearestCompatibleParking(
+  lots: ParkingLot[],
+  userPos: { lat: number; lng: number },
+  vehicle: DriveVehicleMode
+): { lot: ParkingLot; distanceKm: number } | null {
+  const compatible = lots.filter((lot) => lot.categories.includes(vehicle));
+  if (compatible.length === 0) return null;
+  const nonFull = compatible.filter((lot) => lot.availability.status !== 'full');
+  return findNearestParkingLot(nonFull.length > 0 ? nonFull : compatible, userPos);
+}
+
+export function buildGoogleMapsDirectionsUrl(
+  origin: { lat: number; lng: number },
+  destination: { lat: number; lng: number },
+  vehicle: DriveVehicleMode | null
+): string {
+  const travelMode = vehicle === 'motorcycle' ? 'two-wheeler' : 'driving';
+  return `https://www.google.com/maps/dir/?api=1&origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&travelmode=${travelMode}`;
 }
 
 export const DEFAULT_DAILY_STAY_HOURS = 8;

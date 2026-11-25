@@ -10,6 +10,7 @@ import {
   filterParkingLots,
   filterPhnomPenhLots,
   findFirstAvailableBay,
+  findNearestCompatibleParking,
   findNearestParkingLot,
   formatBookingCode,
   formatKhr,
@@ -291,4 +292,23 @@ test('filterParkingLots, validateBookingInput, validateVehicleInput, and validat
   const goodReport = validatePriceReport({ reportedPriceKhr: '2,000', notes: 'Gate board' });
   assert.equal(goodReport.valid, true);
   assert.equal(goodReport.parsedPrice, 2000);
+});
+
+test('findNearestCompatibleParking respects car vs motorcycle vehicle restrictions', () => {
+  const st172Moto = PARKING_LOTS.find((l) => l.id === 'phsar-kandal-st172-moto')!;
+  const nearestForMoto = findNearestCompatibleParking(
+    PARKING_LOTS,
+    st172Moto.position,
+    'motorcycle'
+  );
+  assert.equal(nearestForMoto?.lot.id, 'phsar-kandal-st172-moto');
+
+  const nearestForCar = findNearestCompatibleParking(
+    PARKING_LOTS,
+    st172Moto.position,
+    'car'
+  );
+  assert.ok(nearestForCar);
+  assert.notEqual(nearestForCar?.lot.id, 'phsar-kandal-st172-moto');
+  assert.ok(nearestForCar?.lot.categories.includes('car'));
 });

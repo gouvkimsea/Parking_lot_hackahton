@@ -19,17 +19,20 @@
     font-family: var(--font-sans);
     scroll-behavior: smooth;
     -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
   }
 
   body {
     background-color: var(--color-canvas);
     color: var(--color-ink);
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 
   button:not(:disabled),
-  a[href] {
+  a[href],
+  [role="button"] {
     cursor: pointer;
+    touch-action: manipulation;
   }
 }
 
@@ -77,6 +80,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
   .screen-enter {
     animation: none;
   }
@@ -91,8 +97,10 @@
 .leaflet-popup-content-wrapper {
   border-radius: 18px !important;
   box-shadow: 0 12px 32px rgba(20, 21, 23, 0.16) !important;
+  max-width: min(280px, calc(100vw - 44px)) !important;
 }
 
 .leaflet-popup-content {
   margin: 12px 14px !important;
+  max-width: min(252px, calc(100vw - 72px)) !important;
 }

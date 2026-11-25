@@ -58,14 +58,14 @@ export const SpaceSelectorPanel: React.FC<SpaceSelectorPanelProps> = ({
   return (
     <section
       aria-label="Select Space"
-      className={`flex flex-col bg-white lg:rounded-[32px] lg:shadow-[0_14px_40px_rgba(20,21,23,0.06)] lg:border overflow-hidden min-h-full lg:h-full transition-shadow duration-300 ${
+      className={`flex flex-col bg-white md:rounded-[32px] md:shadow-[0_14px_40px_rgba(20,21,23,0.06)] md:border overflow-hidden min-h-full md:h-full transition-shadow duration-300 ${
         highlighted
-          ? 'lg:border-[#C5EC45] lg:ring-2 lg:ring-[#C5EC45]/70'
-          : 'lg:border-black/[0.04]'
+          ? 'md:border-[#C5EC45] md:ring-2 md:ring-[#C5EC45]/70'
+          : 'md:border-black/[0.04]'
       }`}
     >
       {/* Top Bar: Circular Lime Back Button + Centered Title */}
-      <div className="px-5 pt-5 pb-3.5 flex items-center justify-between gap-3 shrink-0">
+      <div className="px-4 sm:px-5 pt-4 sm:pt-5 pb-3 flex items-center justify-between gap-3 shrink-0">
         <button
           type="button"
           onClick={onBack}
@@ -75,23 +75,23 @@ export const SpaceSelectorPanel: React.FC<SpaceSelectorPanelProps> = ({
           <ArrowLeft className="w-5 h-5" strokeWidth={2.2} />
         </button>
 
-        <h2 className="text-[18px] font-bold tracking-[-0.01em] text-[#141517] truncate">
+        <h2 className="text-[17px] sm:text-[18px] font-bold tracking-[-0.01em] text-[#141517] truncate">
           Select Space
         </h2>
 
         <div className="w-11 h-11 shrink-0" aria-hidden="true" />
       </div>
 
-      {/* Demo Label Banner (Honest Data Disclosure) */}
-      <div className="mx-5 mb-2 px-3 py-1.5 rounded-full bg-[#F6F7F8] text-center text-[11px] font-medium text-[#525760]">
-        Demonstration bay layout · Live garage sensors not connected
+      {/* Floor Preview Notice */}
+      <div className="mx-4 sm:mx-5 mb-2 px-3 py-1.5 rounded-full bg-[#F6F7F8] text-center text-[11px] font-medium text-[#525760] truncate">
+        Floor layout preview · Live garage sensors unavailable
       </div>
 
       {/* Floor Tabs (Ground Floor / 1st Floor / 2nd Floor) */}
       <div
         role="tablist"
         aria-label="Parking floor selection"
-        className="px-5 pb-2 flex items-center gap-2.5 overflow-x-auto no-scrollbar"
+        className="px-4 sm:px-5 pb-2 flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0"
       >
         {FLOOR_ORDER.map((floorId) => {
           const isActive = activeFloor === floorId;
@@ -106,7 +106,7 @@ export const SpaceSelectorPanel: React.FC<SpaceSelectorPanelProps> = ({
                 setOccupiedNotice(null);
                 onFloorChange(floorId);
               }}
-              className={`px-4 py-2.5 rounded-full text-[13px] transition-all whitespace-nowrap shrink-0 min-h-[40px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141517] ${
+              className={`px-3.5 sm:px-4 py-2 rounded-full text-[12.5px] sm:text-[13px] transition-all whitespace-nowrap shrink-0 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141517] ${
                 isActive
                   ? 'bg-[#C5EC45] text-[#141517] font-semibold shadow-[0_4px_12px_rgba(197,236,69,0.3)]'
                   : 'bg-[#F4F5F6] text-[#767B84] hover:text-[#141517] font-medium'
@@ -119,12 +119,12 @@ export const SpaceSelectorPanel: React.FC<SpaceSelectorPanelProps> = ({
         })}
       </div>
 
-      {/* Angled Herringbone Parking Map (Exact Visual Match to Screen 3) */}
-      <div className="flex-1 min-h-0 px-4 pt-1 pb-28 lg:pb-5 flex flex-col justify-between">
-        <div className="w-full max-w-[350px] mx-auto flex-1 min-h-0 flex items-center justify-center">
+      {/* Angled Herringbone Parking Map */}
+      <div className="flex-1 min-h-0 px-3 sm:px-4 pt-1 pb-28 md:pb-4 flex flex-col justify-between">
+        <div className="w-full max-w-[340px] mx-auto flex-1 min-h-0 flex items-center justify-center">
           <svg
             viewBox="0 0 340 404"
-            className="w-full h-full max-h-[450px] select-none"
+            className="w-full h-full max-h-[290px] sm:max-h-[350px] md:max-h-[360px] xl:max-h-[430px] select-none"
             role="group"
             aria-label={`${lot.name} ${FLOOR_LABELS[activeFloor]} parking bay map`}
           >
@@ -325,8 +325,8 @@ export const SpaceSelectorPanel: React.FC<SpaceSelectorPanelProps> = ({
             </div>
           )}
 
-          {/* Desktop Inline Book Now CTA */}
-          <div className="hidden lg:block pt-1">
+          {/* Tablet & Desktop Inline Book Now CTA */}
+          <div className="hidden md:block pt-1">
             <button
               type="button"
               onClick={onBookNow}
@@ -340,7 +340,7 @@ export const SpaceSelectorPanel: React.FC<SpaceSelectorPanelProps> = ({
       </div>
 
       {/* Mobile Sticky Bottom CTA */}
-      <div className="lg:hidden fixed bottom-0 inset-x-0 z-30 px-5 pt-3 pb-5 bg-gradient-to-t from-white via-white to-white/0">
+      <div className="md:hidden fixed bottom-0 inset-x-0 z-30 px-4 sm:px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-white via-white to-white/0">
         <button
           type="button"
           onClick={onBookNow}
