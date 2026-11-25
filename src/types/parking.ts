@@ -115,7 +115,7 @@ export interface ParkingLot {
   distanceKm: number | null;
   rating: number | null;
   reviewCount: number | null;
-  dataSource: 'verified_dataset' | 'google_places';
+  dataSource: 'verified_dataset' | 'google_places' | 'osm_overpass';
   googlePlaceId?: string;
   coordinates: {
     x: number;

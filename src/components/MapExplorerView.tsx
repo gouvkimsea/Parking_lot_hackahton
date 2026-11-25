@@ -11,7 +11,6 @@ import {
   useMapsLibrary,
 } from '@vis.gl/react-google-maps';
 import {
-  AlertCircle,
   BatteryCharging,
   Bike,
   Car,
@@ -29,6 +28,7 @@ import {
   X,
   Zap,
 } from 'lucide-react';
+import { LeafletPhnomPenhMap } from './LeafletPhnomPenhMap';
 import {
   PHNOM_PENH_CENTER,
   PHNOM_PENH_DISTRICTS,
@@ -394,6 +394,7 @@ interface GoogleMapCanvasProps {
   onSearchedPlace: (place: SearchedPlaceResult | null, statusMsg: string | null) => void;
   onRouteComputed: (summary: RouteSummary | null, errorMsg: string | null) => void;
   onPlacesDiscovered: (places: ParkingLot[], msg: string) => void;
+  onFallbackToOsm: () => void;
 }
 
 const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
@@ -413,6 +414,7 @@ const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
   onSearchedPlace,
   onRouteComputed,
   onPlacesDiscovered,
+  onFallbackToOsm,
 }) => {
   const map = useMap();
   const status = useApiLoadingStatus();
@@ -763,21 +765,20 @@ const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
     };
   }, [routeTrigger, routesLib, map, clearRoutePolylines, onRouteComputed]);
 
+  useEffect(() => {
+    if (
+      status === APILoadingStatus.FAILED ||
+      status === APILoadingStatus.AUTH_FAILURE
+    ) {
+      onFallbackToOsm();
+    }
+  }, [status, onFallbackToOsm]);
+
   if (
     status === APILoadingStatus.FAILED ||
     status === APILoadingStatus.AUTH_FAILURE
   ) {
-    return (
-      <div className="w-full h-full flex flex-col items-center justify-center bg-[#F2F4EF] p-6 text-center gap-2.5">
-        <AlertCircle className="w-8 h-8 text-[#B45309]" />
-        <p className="text-[15px] font-bold text-[#141517]">
-          Unable to load Google Maps tiles
-        </p>
-        <p className="text-[13px] text-[#6B7280] max-w-md">
-          Check your Google Maps API key or network connection. You can still browse all Phnom Penh parking rates and EV stations in the left panel.
-        </p>
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -887,6 +888,7 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
 }) => {
   const [mapType, setMapType] = useState<'roadmap' | 'hybrid'>('roadmap');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [useOsmFallback, setUseOsmFallback] = useState(!MAPS_API_KEY);
   const [locating, setLocating] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [searchedPlace, setSearchedPlace] = useState<SearchedPlaceResult | null>(
@@ -908,6 +910,12 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
   } | null>(null);
   const [routeSummary, setRouteSummary] = useState<RouteSummary | null>(null);
   const [recenterSeq, setRecenterSeq] = useState(0);
+
+  useEffect(() => {
+    const handleQuota = () => setUseOsmFallback(true);
+    window.addEventListener('gmp-quota-exceeded', handleQuota);
+    return () => window.removeEventListener('gmp-quota-exceeded', handleQuota);
+  }, []);
 
   const listCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -1477,10 +1485,10 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
           </div>
         </div>
 
-        {/* RIGHT PANEL: Interactive Google Map Centered on Phnom Penh */}
+        {/* RIGHT PANEL: Interactive Map Centered on Phnom Penh (Google Maps or Free OpenStreetMap) */}
         <div className="lg:col-span-7 bg-white rounded-[28px] shadow-[0_14px_40px_rgba(20,21,23,0.06)] border border-black/[0.04] overflow-hidden flex flex-col min-h-[460px] lg:min-h-0">
           <div className="relative flex-1 w-full bg-[#EEF2EB]">
-            {MAPS_API_KEY ? (
+            {MAPS_API_KEY && !useOsmFallback ? (
               <APIProvider
                 apiKey={MAPS_API_KEY}
                 libraries={['marker', 'places', 'routes']}
@@ -1504,42 +1512,32 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
                   onSearchedPlace={handleSearchedPlaceResult}
                   onRouteComputed={handleRouteComputed}
                   onPlacesDiscovered={handlePlacesDiscovered}
+                  onFallbackToOsm={() => setUseOsmFallback(true)}
                 />
               </APIProvider>
             ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center gap-3 bg-[#F2F4EF]">
-                <MapPin className="w-9 h-9 text-[#525760]" />
-                <div className="max-w-md space-y-1.5">
-                  <p className="text-[16px] font-bold text-[#141517]">
-                    Google Maps API Key Required for Live Map Tiles
-                  </p>
-                  <p className="text-[13px] text-[#6B7280]">
-                    Set <code className="px-1.5 py-0.5 rounded bg-white font-mono text-[12px]">VITE_GOOGLE_MAPS_API_KEY</code> in your environment to render interactive Google Maps centered on Phnom Penh (11.5625°N, 104.9160°E).
-                  </p>
-                </div>
-                {selectedLot && (
-                  <div className="mt-2 bg-white rounded-2xl p-4 shadow-sm border border-black/5 max-w-sm w-full text-left space-y-1.5">
-                    <p className="text-[11px] font-semibold text-[#767B84] uppercase">
-                      Selected Location Coordinates
-                    </p>
-                    <p className="text-[14px] font-bold text-[#141517]">{selectedLot.name}</p>
-                    <p className="text-[12px] text-[#525760] font-mono">
-                      {selectedLot.position.lat.toFixed(5)}°N, {selectedLot.position.lng.toFixed(5)}°E
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => onOpenDetails(selectedLot.id)}
-                      className="mt-2 w-full h-9 rounded-full bg-[#C5EC45] text-[#141517] text-[12.5px] font-bold"
-                    >
-                      View Details
-                    </button>
-                  </div>
-                )}
-              </div>
+              <LeafletPhnomPenhMap
+                lots={filteredLots}
+                selectedLot={selectedLot}
+                focusLotTrigger={focusLotTrigger}
+                mapType={mapType}
+                userPosition={userPosition}
+                searchedPlace={searchedPlace}
+                routeTrigger={routeTrigger}
+                placeSearchTrigger={placeSearchTrigger}
+                osmDiscoverySeq={placesDiscoverySeq}
+                recenterSeq={recenterSeq}
+                onSelectLotFromMarker={handleSelectFromMarker}
+                onOpenDetails={onOpenDetails}
+                onRequestDirections={handleRequestDirections}
+                onSearchedPlace={handleSearchedPlaceResult}
+                onRouteComputed={handleRouteComputed}
+                onPlacesDiscovered={handlePlacesDiscovered}
+              />
             )}
 
             {/* Top-Left Map Utility Controls */}
-            <div className="absolute top-3.5 left-3.5 right-3.5 z-10 flex items-center justify-between gap-2 pointer-events-none">
+            <div className="absolute top-3.5 left-3.5 right-3.5 z-[400] flex items-center justify-between gap-2 pointer-events-none">
               <div className="flex items-center gap-2 flex-wrap pointer-events-auto">
                 <button
                   type="button"
@@ -1579,14 +1577,26 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
                   <span>Phnom Penh</span>
                 </button>
 
+                <button
+                  type="button"
+                  onClick={() => setPlacesDiscoverySeq((s) => s + 1)}
+                  className="h-9 px-3 rounded-full bg-[#141517]/95 hover:bg-[#141517] text-white text-[12px] font-semibold shadow-md inline-flex items-center gap-1.5 transition-colors"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-[#C5EC45]" />
+                  <span>
+                    {MAPS_API_KEY && !useOsmFallback
+                      ? 'Scan Google Places'
+                      : 'Scan OpenStreetMap'}
+                  </span>
+                </button>
+
                 {MAPS_API_KEY && (
                   <button
                     type="button"
-                    onClick={() => setPlacesDiscoverySeq((s) => s + 1)}
-                    className="h-9 px-3 rounded-full bg-[#141517]/95 hover:bg-[#141517] text-white text-[12px] font-semibold shadow-md inline-flex items-center gap-1.5 transition-colors"
+                    onClick={() => setUseOsmFallback((prev) => !prev)}
+                    className="h-9 px-3 rounded-full bg-white/95 hover:bg-white text-[#525760] text-[11.5px] font-semibold shadow-md"
                   >
-                    <Sparkles className="w-3.5 h-3.5 text-[#C5EC45]" />
-                    <span>Scan Google Places</span>
+                    {useOsmFallback ? 'Use Google Maps' : 'Use OpenStreetMap'}
                   </button>
                 )}
               </div>
@@ -1594,7 +1604,7 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
 
             {/* Route Summary Banner (when active) */}
             {routeSummary && (
-              <div className="absolute top-16 left-3.5 z-10 bg-[#141517] text-white px-3.5 py-2 rounded-full shadow-lg text-[12px] font-semibold flex items-center gap-2">
+              <div className="absolute top-16 left-3.5 z-[400] bg-[#141517] text-white px-3.5 py-2 rounded-full shadow-lg text-[12px] font-semibold flex items-center gap-2">
                 <RouteIcon className="w-3.5 h-3.5 text-[#C5EC45]" />
                 <span>
                   Drive: {routeSummary.durationText} · {routeSummary.distanceText}
@@ -1602,8 +1612,8 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
               </div>
             )}
 
-            {/* Bottom Marker Legend */}
-            <div className="absolute bottom-3.5 left-3.5 right-3.5 z-10 flex items-center justify-between gap-2 pointer-events-none">
+            {/* Bottom Marker Legend + Active Map Engine Badge */}
+            <div className="absolute bottom-3.5 left-3.5 right-3.5 z-[400] flex items-center justify-between gap-2 pointer-events-none">
               <div className="bg-white/95 backdrop-blur-sm rounded-full px-3.5 py-2 shadow-md border border-black/[0.05] flex items-center gap-3 overflow-x-auto no-scrollbar pointer-events-auto">
                 {MARKER_LEGEND.map((item) => (
                   <div
@@ -1614,6 +1624,11 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
                     <span>{item.label}</span>
                   </div>
                 ))}
+                {(!MAPS_API_KEY || useOsmFallback) && (
+                  <span className="pl-2 border-l border-black/10 text-[10.5px] font-medium text-[#525760] whitespace-nowrap shrink-0">
+                    OpenStreetMap (Free)
+                  </span>
+                )}
               </div>
             </div>
           </div>

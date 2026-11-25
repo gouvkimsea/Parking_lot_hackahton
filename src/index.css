@@ -81,3 +81,18 @@
     animation: none;
   }
 }
+
+.parkeasy-leaflet-marker,
+.parkeasy-search-pin {
+  background: transparent;
+  border: none;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 18px !important;
+  box-shadow: 0 12px 32px rgba(20, 21, 23, 0.16) !important;
+}
+
+.leaflet-popup-content {
+  margin: 12px 14px !important;
+}

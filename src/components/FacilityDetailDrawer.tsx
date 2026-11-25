@@ -227,6 +227,11 @@ export const FacilityDetailDrawer: React.FC<FacilityDetailDrawerProps> = ({
                   Google Places
                 </span>
               )}
+              {lot.dataSource === 'osm_overpass' && (
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700">
+                  OpenStreetMap
+                </span>
+              )}
             </div>
             <h2
               id="facility-drawer-title"
