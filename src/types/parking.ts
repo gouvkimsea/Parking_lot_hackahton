@@ -32,8 +32,12 @@ export interface ParkingLot {
   rating: number;
   reviewCount: number;
   coordinates: {
-    x: number; // percentage 0..100 on interactive city map
-    y: number; // percentage 0..100 on interactive city map
+    x: number;
+    y: number;
+  };
+  position: {
+    lat: number;
+    lng: number;
   };
   floors: Record<FloorId, ParkingBay[]>;
 }

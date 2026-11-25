@@ -72,6 +72,7 @@ export const PARKING_LOTS: ParkingLot[] = [
     rating: 4.9,
     reviewCount: 418,
     coordinates: { x: 48, y: 42 },
+    position: { lat: 37.7897, lng: -122.4014 },
     // Ground: 5 open (G-02, G-03, G-06, G-07, G-10) — exact reference match!
     // 1st Floor: 4 open, 2nd Floor: 3 open => Total = 12 Space available (exact reference match!)
     floors: {
@@ -118,6 +119,7 @@ export const PARKING_LOTS: ParkingLot[] = [
     rating: 4.8,
     reviewCount: 294,
     coordinates: { x: 26, y: 31 },
+    position: { lat: 37.7852, lng: -122.4089 },
     floors: {
       ground: buildFloorBays('ground', 'G', ['G-02', 'G-05', 'G-07', 'G-08']),
       first: buildFloorBays('first', 'F1', ['F1-01', 'F1-03', 'F1-04', 'F1-07', 'F1-10']),
@@ -147,6 +149,7 @@ export const PARKING_LOTS: ParkingLot[] = [
     rating: 4.9,
     reviewCount: 216,
     coordinates: { x: 74, y: 35 },
+    position: { lat: 37.7924, lng: -122.3948 },
     floors: {
       ground: buildFloorBays(
         'ground',
@@ -186,6 +189,7 @@ export const PARKING_LOTS: ParkingLot[] = [
     rating: 4.7,
     reviewCount: 163,
     coordinates: { x: 64, y: 68 },
+    position: { lat: 37.7844, lng: -122.3976 },
     floors: {
       ground: buildFloorBays('ground', 'G', ['G-01', 'G-02', 'G-05', 'G-08', 'G-09', 'G-10']),
       first: buildFloorBays('first', 'F1', ['F1-01', 'F1-04', 'F1-07', 'F1-08']),
@@ -214,6 +218,7 @@ export const PARKING_LOTS: ParkingLot[] = [
     rating: 4.8,
     reviewCount: 129,
     coordinates: { x: 24, y: 66 },
+    position: { lat: 37.7819, lng: -122.4046 },
     floors: {
       ground: buildFloorBays('ground', 'G', ['G-04', 'G-06', 'G-09']),
       first: buildFloorBays('first', 'F1', ['F1-02', 'F1-05', 'F1-08', 'F1-09']),
