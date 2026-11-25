@@ -71,6 +71,35 @@ export const PARKING_LOTS: ParkingLot[] = [
     distanceKm: 0.4,
     rating: 4.9,
     reviewCount: 418,
+    reviews: [
+      {
+        id: 'rev-prestige-1',
+        author: 'Daniel Park',
+        initials: 'DP',
+        rating: 5,
+        dateLabel: '2 days ago',
+        comment:
+          'Wide angled bays make pulling in effortless, and the contactless license-plate gate opened right away.',
+      },
+      {
+        id: 'rev-prestige-2',
+        author: 'Maya Alvarez',
+        initials: 'MA',
+        rating: 5,
+        dateLabel: '1 week ago',
+        comment:
+          'Spotless lighting and clear LED signs to open bays. Charged my EV on the ground floor while at dinner.',
+      },
+      {
+        id: 'rev-prestige-3',
+        author: 'Trevor Lin',
+        initials: 'TL',
+        rating: 4,
+        dateLabel: '2 weeks ago',
+        comment:
+          'Very secure and steps from Central Avenue offices. Slightly busy around 6 PM, so booking ahead helps.',
+      },
+    ],
     coordinates: { x: 48, y: 42 },
     position: { lat: 37.7897, lng: -122.4014 },
     // Ground: 5 open (G-02, G-03, G-06, G-07, G-10) — exact reference match!
@@ -118,6 +147,35 @@ export const PARKING_LOTS: ParkingLot[] = [
     distanceKm: 0.9,
     rating: 4.8,
     reviewCount: 294,
+    reviews: [
+      {
+        id: 'rev-central-1',
+        author: 'Hannah Brooks',
+        initials: 'HB',
+        rating: 5,
+        dateLabel: '3 days ago',
+        comment:
+          'Open 24/7 with generous ceiling clearance on the ground deck. My SUV fit with plenty of room to spare.',
+      },
+      {
+        id: 'rev-central-2',
+        author: 'Omar Siddiqui',
+        initials: 'OS',
+        rating: 5,
+        dateLabel: '6 days ago',
+        comment:
+          'Great value for Civic Center and the Market Street pedestrian exit saved us a five-minute walk.',
+      },
+      {
+        id: 'rev-central-3',
+        author: 'Claire Sato',
+        initials: 'CS',
+        rating: 4,
+        dateLabel: '3 weeks ago',
+        comment:
+          'Clean ramps and visible security patrol at night. Upper levels are quieter if you want extra door space.',
+      },
+    ],
     coordinates: { x: 26, y: 31 },
     position: { lat: 37.7852, lng: -122.4089 },
     floors: {
@@ -148,6 +206,35 @@ export const PARKING_LOTS: ParkingLot[] = [
     distanceKm: 1.2,
     rating: 4.9,
     reviewCount: 216,
+    reviews: [
+      {
+        id: 'rev-metro-1',
+        author: 'Priya Nair',
+        initials: 'PN',
+        rating: 5,
+        dateLabel: '1 day ago',
+        comment:
+          'Every ground-floor EV charger worked on the first try and delivered steady 22kW charging during my workday.',
+      },
+      {
+        id: 'rev-metro-2',
+        author: 'Lucas Meyer',
+        initials: 'LM',
+        rating: 5,
+        dateLabel: '5 days ago',
+        comment:
+          'Best sheltered bike area in the Tech Quarter. Well-lit, dry during rain, and super easy check-in.',
+      },
+      {
+        id: 'rev-metro-3',
+        author: 'Elena Ross',
+        initials: 'ER',
+        rating: 4,
+        dateLabel: '2 weeks ago',
+        comment:
+          'Modern layout with accurate open-bay indicators. Wish it stayed open past 11 PM on weekends.',
+      },
+    ],
     coordinates: { x: 74, y: 35 },
     position: { lat: 37.7924, lng: -122.3948 },
     floors: {
@@ -188,6 +275,35 @@ export const PARKING_LOTS: ParkingLot[] = [
     distanceKm: 1.6,
     rating: 4.7,
     reviewCount: 163,
+    reviews: [
+      {
+        id: 'rev-grand-1',
+        author: 'Victor Chen',
+        initials: 'VC',
+        rating: 5,
+        dateLabel: '4 days ago',
+        comment:
+          'Right next to Union Station with fast highway exit lanes. Staff helped load luggage smoothly.',
+      },
+      {
+        id: 'rev-grand-2',
+        author: 'Nadia Kowalski',
+        initials: 'NK',
+        rating: 5,
+        dateLabel: '1 week ago',
+        comment:
+          'Wide oversized spaces and zero hassle getting our shuttle van in and out during morning rush.',
+      },
+      {
+        id: 'rev-grand-3',
+        author: 'Samir Patel',
+        initials: 'SP',
+        rating: 4,
+        dateLabel: '3 weeks ago',
+        comment:
+          'Pricier per hour than nearby lots, but unbeatable convenience when catching an early train.',
+      },
+    ],
     coordinates: { x: 64, y: 68 },
     position: { lat: 37.7844, lng: -122.3976 },
     floors: {
@@ -217,6 +333,35 @@ export const PARKING_LOTS: ParkingLot[] = [
     distanceKm: 1.9,
     rating: 4.8,
     reviewCount: 129,
+    reviews: [
+      {
+        id: 'rev-westside-1',
+        author: 'Chloe Bennett',
+        initials: 'CB',
+        rating: 5,
+        dateLabel: '2 days ago',
+        comment:
+          'Built-in helmet lockers and affordable hourly rates make this my go-to stop in the Arts District.',
+      },
+      {
+        id: 'rev-westside-2',
+        author: 'Mateo Ruiz',
+        initials: 'MR',
+        rating: 5,
+        dateLabel: '1 week ago',
+        comment:
+          'Compact car spaces are neatly marked and covered from the sun. Even has a handy bike repair stand.',
+      },
+      {
+        id: 'rev-westside-3',
+        author: 'Grace Kim',
+        initials: 'GK',
+        rating: 4,
+        dateLabel: '2 weeks ago',
+        comment:
+          'Quiet neighborhood garage with friendly entry signage. Best suited for motorcycles and smaller cars.',
+      },
+    ],
     coordinates: { x: 24, y: 66 },
     position: { lat: 37.7819, lng: -122.4046 },
     floors: {

@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BookingModal } from './components/BookingModal';
+import { DailyRatesChart } from './components/DailyRatesChart';
 import { DetailsPanel } from './components/DetailsPanel';
 import { DiscoverPanel } from './components/DiscoverPanel';
 import { MapExplorerView } from './components/MapExplorerView';
@@ -40,26 +41,39 @@ function loadFromStorage<T>(key: string, fallback: T): T {
   }
 }
 
-function useIsDesktop(): boolean {
-  const [isDesktop, setIsDesktop] = useState<boolean>(() =>
-    typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
-  );
+type ViewportTier = 'mobile' | 'tablet' | 'desktop';
+
+function getViewportTier(): ViewportTier {
+  if (typeof window === 'undefined') return 'desktop';
+  if (window.innerWidth >= 1024) return 'desktop';
+  if (window.innerWidth >= 768) return 'tablet';
+  return 'mobile';
+}
+
+function useViewportTier(): ViewportTier {
+  const [tier, setTier] = useState<ViewportTier>(getViewportTier);
 
   useEffect(() => {
-    const mq = window.matchMedia('(min-width: 1024px)');
-    const handleChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
-    setIsDesktop(mq.matches);
-    mq.addEventListener('change', handleChange);
-    return () => mq.removeEventListener('change', handleChange);
+    const mqDesktop = window.matchMedia('(min-width: 1024px)');
+    const mqTablet = window.matchMedia('(min-width: 768px)');
+    const sync = () => setTier(getViewportTier());
+    sync();
+    mqDesktop.addEventListener('change', sync);
+    mqTablet.addEventListener('change', sync);
+    return () => {
+      mqDesktop.removeEventListener('change', sync);
+      mqTablet.removeEventListener('change', sync);
+    };
   }, []);
 
-  return isDesktop;
+  return tier;
 }
 
 export default function App() {
-  const isDesktop = useIsDesktop();
+  const viewportTier = useViewportTier();
+  const isMobile = viewportTier === 'mobile';
   const [activeTab, setActiveTab] = useState<ActiveTab>('home');
-  const [mobileScreen, setMobileScreen] = useState<MobileScreen>('home');
+  const [homeScreen, setHomeScreen] = useState<MobileScreen>('home');
 
   // Discovery filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -95,8 +109,6 @@ export default function App() {
   const [bookingModalMode, setBookingModalMode] = useState<'create' | 'view-pass'>('create');
   const [viewedPass, setViewedPass] = useState<BookingRecord | null>(null);
   const [mapsQuotaExceeded, setMapsQuotaExceeded] = useState(false);
-
-  const spaceColumnRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const handleQuotaExceeded = () => setMapsQuotaExceeded(true);
@@ -198,7 +210,7 @@ export default function App() {
     [bookings]
   );
 
-  const handleSelectLot = (lotId: string, openDetailsOnMobile = false) => {
+  const handleSelectLot = (lotId: string, openDetails = false) => {
     setSelectedLotId(lotId);
     setActiveFloor('ground');
     const targetLot = PARKING_LOTS.find((l) => l.id === lotId) ?? PARKING_LOTS[0];
@@ -210,15 +222,10 @@ export default function App() {
       preferred
     );
     setSelectedBayId(openBay?.id ?? null);
-    if (openDetailsOnMobile) {
-      setMobileScreen('details');
+    if (openDetails) {
+      setHomeScreen('details');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  };
-
-  const handleCyclePreviousLot = () => {
-    const idx = PARKING_LOTS.findIndex((l) => l.id === selectedLot.id);
-    const prevIdx = (idx - 1 + PARKING_LOTS.length) % PARKING_LOTS.length;
-    handleSelectLot(PARKING_LOTS[prevIdx].id, false);
   };
 
   const handleToggleFavorite = (lotId: string) => {
@@ -228,9 +235,9 @@ export default function App() {
   };
 
   const handleSelectSpaceAction = () => {
-    setMobileScreen('select-space');
+    setHomeScreen('select-space');
     setHighlightSpacePanel(true);
-    spaceColumnRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     window.setTimeout(() => setHighlightSpacePanel(false), 1200);
   };
 
@@ -272,15 +279,16 @@ export default function App() {
   const handleTabChange = (tab: ActiveTab) => {
     setActiveTab(tab);
     if (tab === 'home') {
-      setMobileScreen('home');
+      setHomeScreen('home');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   const showMobileBottomBar =
-    activeTab !== 'home' || mobileScreen === 'home';
+    isMobile && (activeTab !== 'home' || homeScreen === 'home');
 
   return (
-    <div className="min-h-screen flex flex-col bg-white lg:bg-[#F6F8F3] text-[#141517]">
+    <div className="min-h-screen flex flex-col bg-white md:bg-[#F6F8F3] text-[#141517]">
       {mapsQuotaExceeded && (
         <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm">
           <span>
@@ -310,64 +318,11 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 w-full lg:py-6">
-        {activeTab === 'home' && isDesktop && (
-          /* DESKTOP 3-COLUMN SYNCHRONIZED WORKBENCH (Direct visual match to 3-panel reference) */
-          <div className="grid grid-cols-12 gap-6 max-w-[1380px] mx-auto px-8 items-stretch h-[calc(100vh-116px)] min-h-[690px] max-h-[820px]">
-            <div className="col-span-4 min-h-0 flex flex-col">
-              <DiscoverPanel
-                lots={filteredLots}
-                selectedLotId={selectedLot.id}
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                activeCategory={activeCategory}
-                onCategoryChange={setActiveCategory}
-                showAll={showAllLots}
-                onToggleShowAll={() => setShowAllLots((prev) => !prev)}
-                activeBookedBayKeys={activeBookedBayKeys}
-                onSelectLot={(id) => handleSelectLot(id, false)}
-                onOpenProfile={() => setActiveTab('settings')}
-              />
-            </div>
-
-            <div className="col-span-4 min-h-0 flex flex-col">
-              <DetailsPanel
-                lot={selectedLot}
-                isFavorite={favoriteSet.has(selectedLot.id)}
-                onToggleFavorite={handleToggleFavorite}
-                activeBookedBayKeys={activeBookedBayKeys}
-                onBack={handleCyclePreviousLot}
-                onSelectSpace={handleSelectSpaceAction}
-                onOpenOnMap={(id) => {
-                  handleSelectLot(id, false);
-                  setActiveTab('map');
-                }}
-                isDesktop
-              />
-            </div>
-
-            <div ref={spaceColumnRef} className="col-span-4 min-h-0 flex flex-col">
-              <SpaceSelectorPanel
-                lot={selectedLot}
-                activeFloor={activeFloor}
-                onFloorChange={setActiveFloor}
-                selectedBayId={selectedBayId}
-                onSelectBay={(bay) => setSelectedBayId(bay.id)}
-                activeBookedBayKeys={activeBookedBayKeys}
-                onBack={handleCyclePreviousLot}
-                onBookNow={handleOpenBookingModal}
-                highlighted={highlightSpacePanel}
-                isDesktop
-              />
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'home' && !isDesktop && (
-          /* MOBILE / TABLET SINGLE-SCREEN FLOW (Exact Screen 1 -> Screen 2 -> Screen 3) */
-          <div className="max-w-[520px] mx-auto min-h-screen bg-white">
-            {mobileScreen === 'home' && (
-              <div key="mobile-home" className="min-h-screen screen-enter">
+      <main className="flex-1 w-full md:py-5 lg:py-6">
+        {activeTab === 'home' && (
+          <div className="max-w-[520px] md:max-w-[1120px] mx-auto md:px-5 lg:px-8 min-h-screen md:min-h-0 bg-white md:bg-transparent">
+            {homeScreen === 'home' && (
+              <div key="home-discover" className="min-h-screen md:min-h-0 space-y-5 lg:space-y-6 screen-enter">
                 <DiscoverPanel
                   lots={filteredLots}
                   selectedLotId={selectedLot.id}
@@ -380,19 +335,42 @@ export default function App() {
                   activeBookedBayKeys={activeBookedBayKeys}
                   onSelectLot={(id) => handleSelectLot(id, true)}
                   onOpenProfile={() => setActiveTab('settings')}
+                  footerContent={
+                    isMobile ? (
+                      <DailyRatesChart
+                        lots={PARKING_LOTS}
+                        selectedLotId={selectedLot.id}
+                        activeBookedBayKeys={activeBookedBayKeys}
+                        onSelectLot={(id) => handleSelectLot(id, true)}
+                        compact
+                      />
+                    ) : undefined
+                  }
                 />
+
+                {!isMobile && (
+                  <DailyRatesChart
+                    lots={PARKING_LOTS}
+                    selectedLotId={selectedLot.id}
+                    activeBookedBayKeys={activeBookedBayKeys}
+                    onSelectLot={(id) => handleSelectLot(id, true)}
+                  />
+                )}
               </div>
             )}
 
-            {mobileScreen === 'details' && (
-              <div key="mobile-details" className="min-h-screen screen-enter">
+            {homeScreen === 'details' && (
+              <div key="home-details" className="min-h-screen md:min-h-0 screen-enter">
                 <DetailsPanel
                   lot={selectedLot}
                   isFavorite={favoriteSet.has(selectedLot.id)}
                   onToggleFavorite={handleToggleFavorite}
                   activeBookedBayKeys={activeBookedBayKeys}
-                  onBack={() => setMobileScreen('home')}
-                  onSelectSpace={() => setMobileScreen('select-space')}
+                  onBack={() => {
+                    setHomeScreen('home');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  onSelectSpace={handleSelectSpaceAction}
                   onOpenOnMap={(id) => {
                     handleSelectLot(id, false);
                     setActiveTab('map');
@@ -401,8 +379,8 @@ export default function App() {
               </div>
             )}
 
-            {mobileScreen === 'select-space' && (
-              <div key="mobile-select-space" className="min-h-screen screen-enter">
+            {homeScreen === 'select-space' && (
+              <div key="home-select-space" className="min-h-screen md:min-h-0 screen-enter">
                 <SpaceSelectorPanel
                   lot={selectedLot}
                   activeFloor={activeFloor}
@@ -410,8 +388,12 @@ export default function App() {
                   selectedBayId={selectedBayId}
                   onSelectBay={(bay) => setSelectedBayId(bay.id)}
                   activeBookedBayKeys={activeBookedBayKeys}
-                  onBack={() => setMobileScreen('details')}
+                  onBack={() => {
+                    setHomeScreen('details');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
                   onBookNow={handleOpenBookingModal}
+                  highlighted={highlightSpacePanel}
                 />
               </div>
             )}
@@ -438,8 +420,9 @@ export default function App() {
             onOpenSelectSpace={(id) => {
               handleSelectLot(id, false);
               setActiveTab('home');
-              setMobileScreen('select-space');
+              setHomeScreen('select-space');
               setHighlightSpacePanel(true);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
               window.setTimeout(() => setHighlightSpacePanel(false), 1200);
             }}
           />

@@ -16,8 +16,8 @@ export const DesktopTopBar: React.FC<DesktopTopBarProps> = ({
   onQuickBook,
 }) => {
   return (
-    <header className="hidden lg:block sticky top-0 z-40 bg-[#F6F8F3]/90 backdrop-blur-md border-b border-black/[0.05]">
-      <div className="max-w-[1380px] mx-auto px-8 h-[68px] flex items-center justify-between gap-8">
+    <header className="hidden md:block sticky top-0 z-40 bg-[#F6F8F3]/90 backdrop-blur-md border-b border-black/[0.05]">
+      <div className="max-w-[1120px] mx-auto px-5 lg:px-8 h-[60px] flex items-center justify-between gap-6 lg:gap-8">
         {/* Zone 1: Single-element Brand Wordmark */}
         <button
           type="button"
@@ -107,7 +107,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   return (
     <nav
       aria-label="Mobile navigation"
-      className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-black/[0.05] px-4 py-3 shadow-[0_-8px_24px_rgba(20,21,23,0.05)]"
+      className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-black/[0.05] px-4 py-3 shadow-[0_-8px_24px_rgba(20,21,23,0.05)]"
     >
       <div className="max-w-[440px] mx-auto grid grid-cols-3 gap-2.5">
         {navItems.map(({ id, label, icon: Icon }) => {

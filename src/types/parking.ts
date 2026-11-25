@@ -16,6 +16,15 @@ export interface ParkingBay {
   evReady?: boolean;
 }
 
+export interface ParkingReview {
+  id: string;
+  author: string;
+  initials: string;
+  rating: number;
+  dateLabel: string;
+  comment: string;
+}
+
 export interface ParkingLot {
   id: string;
   name: string;
@@ -31,6 +40,7 @@ export interface ParkingLot {
   distanceKm: number;
   rating: number;
   reviewCount: number;
+  reviews: ParkingReview[];
   coordinates: {
     x: number;
     y: number;

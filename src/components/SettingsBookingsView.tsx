@@ -87,9 +87,9 @@ export const SettingsBookingsView: React.FC<SettingsBookingsViewProps> = ({
   return (
     <section
       aria-label="Account Settings and Bookings"
-      className="max-w-[1380px] mx-auto w-full px-4 sm:px-5 lg:px-8 pb-28 lg:pb-10"
+      className="max-w-[1360px] mx-auto w-full px-4 sm:px-5 lg:px-6 xl:px-8 pb-28 md:pb-8"
     >
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6 items-start">
         {/* Left Column: Profile + Vehicles + Preferences */}
         <div className="lg:col-span-5 space-y-6">
           {/* Profile Summary Card */}

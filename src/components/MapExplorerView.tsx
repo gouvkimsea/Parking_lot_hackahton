@@ -24,7 +24,12 @@ import {
   X,
 } from 'lucide-react';
 import type { ParkingLot, VehicleCategory } from '../types/parking';
-import { countAvailableSpaces, formatCurrency } from '../utils/parkingLogic';
+import {
+  calculateDistanceKm,
+  countAvailableSpaces,
+  findNearestParkingLot,
+  formatCurrency,
+} from '../utils/parkingLogic';
 
 interface MapExplorerViewProps {
   lots: ParkingLot[];
@@ -181,6 +186,7 @@ interface GoogleMapCanvasProps {
   routeTrigger: { lot: ParkingLot; origin: google.maps.LatLngLiteral; seq: number } | null;
   placeSearchTrigger: { query: string; seq: number } | null;
   recenterSeq: number;
+  centerOnUserSeq: number;
   onSelectLot: (lotId: string) => void;
   onOpenSelectSpace: (lotId: string) => void;
   onSearchedPlace: (place: SearchedPlaceResult | null, statusMsg: string | null) => void;
@@ -197,6 +203,7 @@ const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
   routeTrigger,
   placeSearchTrigger,
   recenterSeq,
+  centerOnUserSeq,
   onSelectLot,
   onOpenSelectSpace,
   onSearchedPlace,
@@ -235,14 +242,21 @@ const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
     map.panTo(activeLot.position);
   }, [map, activeLot]);
 
-  // Recenter camera when requested
+  // Recenter camera on downtown garages when requested
   useEffect(() => {
     if (!map || recenterSeq === 0) return;
     clearRoutePolylines();
     onRouteComputed(null, null);
-    map.panTo(userPosition ?? DEFAULT_CENTER);
+    map.panTo(DEFAULT_CENTER);
     map.setZoom(15);
-  }, [map, recenterSeq, userPosition, clearRoutePolylines, onRouteComputed]);
+  }, [map, recenterSeq, clearRoutePolylines, onRouteComputed]);
+
+  // Center map directly on the user's live geolocation when requested
+  useEffect(() => {
+    if (!map || centerOnUserSeq === 0 || !userPosition) return;
+    map.panTo(userPosition);
+    map.setZoom(15);
+  }, [map, centerOnUserSeq, userPosition]);
 
   // Modern Places API (New) text search when user explicitly searches on Google Maps
   useEffect(() => {
@@ -542,12 +556,25 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
   } | null>(null);
   const [routeSummary, setRouteSummary] = useState<RouteSummary | null>(null);
   const [recenterSeq, setRecenterSeq] = useState(0);
+  const [centerOnUserSeq, setCenterOnUserSeq] = useState(0);
 
   const activeLot =
     lots.find((l) => l.id === selectedLotId) ?? lots[0] ?? allLots[0];
   const activeAvailable = countAvailableSpaces(activeLot, activeBookedBayKeys);
 
-  const handleLocateMe = () => {
+  const nearestToUser = useMemo(() => {
+    if (!userPosition) return null;
+    return findNearestParkingLot(lots.length > 0 ? lots : allLots, userPosition);
+  }, [userPosition, lots, allLots]);
+
+  const activeDistanceKm = useMemo(() => {
+    if (userPosition) {
+      return calculateDistanceKm(userPosition, activeLot.position);
+    }
+    return activeLot.distanceKm;
+  }, [userPosition, activeLot]);
+
+  const handleCenterOnMyLocation = () => {
     if (!navigator.geolocation) {
       setStatusMessage('Geolocation is not supported in this browser.');
       return;
@@ -562,13 +589,19 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
         };
         setUserPosition(coords);
         setLocating(false);
-        setRecenterSeq((s) => s + 1);
+        setCenterOnUserSeq((s) => s + 1);
       },
-      () => {
+      (err) => {
         setLocating(false);
-        setStatusMessage(
-          'Location permission declined. Showing Downtown District garages.'
-        );
+        if (err.code === err.PERMISSION_DENIED) {
+          setStatusMessage(
+            'Location access was denied. Enable browser location permissions to center on your position.'
+          );
+        } else {
+          setStatusMessage(
+            'Unable to determine your current location right now. Showing Downtown District garages.'
+          );
+        }
       },
       { enableHighAccuracy: true, timeout: 8000 }
     );
@@ -617,7 +650,7 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
   return (
     <section
       aria-label="Interactive Google Maps Parking Explorer"
-      className="max-w-[1380px] mx-auto w-full px-0 sm:px-5 lg:px-8 pb-24 lg:pb-8"
+      className="max-w-[1360px] mx-auto w-full px-0 sm:px-5 lg:px-6 xl:px-8 pb-24 md:pb-8"
     >
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
         {/* Left/Main Live Google Maps Panel */}
@@ -697,10 +730,36 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
                 {statusMessage}
               </p>
             )}
+
+            {userPosition && nearestToUser && !statusMessage && (
+              <div
+                role="status"
+                className="flex items-center justify-between gap-2 text-[12.5px] text-[#525760] px-1 flex-wrap"
+              >
+                <span>
+                  Centered on your location · Closest garage:{' '}
+                  <strong className="font-semibold text-[#141517]">
+                    {nearestToUser.lot.name}
+                  </strong>{' '}
+                  <span className="tabular-nums">
+                    ({nearestToUser.distanceKm.toFixed(1)} km away)
+                  </span>
+                </span>
+                {nearestToUser.lot.id !== activeLot.id && (
+                  <button
+                    type="button"
+                    onClick={() => onSelectLot(nearestToUser.lot.id)}
+                    className="text-[12px] font-semibold text-[#141517] underline hover:text-[#4D6A0A] whitespace-nowrap"
+                  >
+                    Focus Closest
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Live Google Maps Container (Explicit Height per CF2) */}
-          <div className="relative h-[450px] sm:h-[540px] w-full bg-[#EEF2EB] overflow-hidden">
+          {/* Live Google Maps Container (Explicit Height adapted to laptop/desktop screens) */}
+          <div className="relative h-[400px] sm:h-[440px] md:h-[clamp(390px,calc(100vh-270px),540px)] w-full bg-[#EEF2EB] overflow-hidden">
             {MAPS_API_KEY ? (
               <APIProvider
                 apiKey={MAPS_API_KEY}
@@ -718,6 +777,7 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
                   routeTrigger={routeTrigger}
                   placeSearchTrigger={placeSearchTrigger}
                   recenterSeq={recenterSeq}
+                  centerOnUserSeq={centerOnUserSeq}
                   onSelectLot={onSelectLot}
                   onOpenSelectSpace={onOpenSelectSpace}
                   onSearchedPlace={handleSearchedPlaceResult}
@@ -736,8 +796,27 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
               </div>
             )}
 
-            {/* Floating Map Utility Controls (Map Type, My Location, Recenter) */}
-            <div className="absolute top-3.5 left-3.5 z-10 flex items-center gap-2">
+            {/* Floating Map Utility Controls (Center on my location, Map Type, Recenter) */}
+            <div className="absolute top-3.5 left-3.5 right-3.5 z-10 flex items-center gap-2 flex-wrap pointer-events-none">
+              <button
+                type="button"
+                onClick={handleCenterOnMyLocation}
+                disabled={locating}
+                aria-label="Center on my location"
+                className={`pointer-events-auto h-10 px-3.5 rounded-full text-[12.5px] font-semibold shadow-md flex items-center gap-1.5 transition-colors whitespace-nowrap disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141517] ${
+                  userPosition
+                    ? 'bg-[#C5EC45] hover:bg-[#B6DE35] text-[#141517]'
+                    : 'bg-white/95 hover:bg-white text-[#141517]'
+                }`}
+              >
+                {locating ? (
+                  <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                ) : (
+                  <Crosshair className="w-4 h-4 shrink-0" />
+                )}
+                <span>{locating ? 'Locating…' : 'Center on my location'}</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() =>
@@ -748,25 +827,10 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
                     ? 'Switch to Satellite view'
                     : 'Switch to Road map view'
                 }
-                className="h-10 px-3.5 rounded-full bg-white/95 hover:bg-white text-[#141517] text-[12.5px] font-semibold shadow-md flex items-center gap-1.5 transition-colors"
+                className="pointer-events-auto h-10 px-3.5 rounded-full bg-white/95 hover:bg-white text-[#141517] text-[12.5px] font-semibold shadow-md flex items-center gap-1.5 transition-colors whitespace-nowrap"
               >
-                <Layers className="w-4 h-4" />
+                <Layers className="w-4 h-4 shrink-0" />
                 <span>{mapType === 'roadmap' ? 'Satellite' : 'Map'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleLocateMe}
-                disabled={locating}
-                aria-label="Use my current location"
-                className="h-10 px-3.5 rounded-full bg-white/95 hover:bg-white text-[#141517] text-[12.5px] font-semibold shadow-md flex items-center gap-1.5 transition-colors disabled:opacity-70"
-              >
-                {locating ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Crosshair className="w-4 h-4" />
-                )}
-                <span>My Location</span>
               </button>
 
               <button
@@ -778,9 +842,9 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
                   setRecenterSeq((s) => s + 1);
                 }}
                 aria-label="Recenter map on downtown garages"
-                className="h-10 px-3.5 rounded-full bg-white/95 hover:bg-white text-[#141517] text-[12.5px] font-semibold shadow-md flex items-center gap-1.5 transition-colors"
+                className="pointer-events-auto h-10 px-3.5 rounded-full bg-white/95 hover:bg-white text-[#141517] text-[12.5px] font-semibold shadow-md flex items-center gap-1.5 transition-colors whitespace-nowrap"
               >
-                <Navigation className="w-4 h-4" />
+                <Navigation className="w-4 h-4 shrink-0" />
                 <span>Recenter</span>
               </button>
             </div>
@@ -790,6 +854,9 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
           <div className="px-4 py-3 border-t border-[#F0F1F3] bg-[#FAFAFA] flex items-center gap-2 overflow-x-auto no-scrollbar">
             {lots.map((lot) => {
               const isSelected = lot.id === activeLot.id;
+              const lotDistKm = userPosition
+                ? calculateDistanceKm(userPosition, lot.position)
+                : null;
               return (
                 <button
                   key={lot.id}
@@ -802,6 +869,7 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
                   }`}
                 >
                   {lot.name} · ${lot.pricePerHour}/hr
+                  {lotDistKm !== null ? ` · ${lotDistKm.toFixed(1)} km` : ''}
                 </button>
               );
             })}
@@ -878,12 +946,17 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
                 <p className="text-[13px] font-bold text-[#141517]">
                   {routeSummary && routeSummary.lotId === activeLot.id
                     ? 'Drive Route'
-                    : 'Distance'}
+                    : userPosition
+                      ? 'From You'
+                      : 'Distance'}
                 </p>
-                <p className="text-[12.5px] text-[#767B84] mt-0.5 tabular-nums">
+                <p
+                  data-testid="map-selected-distance"
+                  className="text-[12.5px] text-[#767B84] mt-0.5 tabular-nums"
+                >
                   {routeSummary && routeSummary.lotId === activeLot.id
                     ? `${routeSummary.durationText} · ${routeSummary.distanceText}`
-                    : `${activeLot.distanceKm.toFixed(1)} km away`}
+                    : `${activeDistanceKm.toFixed(1)} km away`}
                 </p>
               </div>
             </div>
