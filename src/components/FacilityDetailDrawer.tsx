@@ -275,8 +275,16 @@ export const FacilityDetailDrawer: React.FC<FacilityDetailDrawerProps> = ({
           <div className="bg-[#F6F7F8] rounded-[20px] p-4 space-y-2.5">
             <p className="text-[13px] text-[#141517] font-medium flex items-start gap-2">
               <MapPin className="w-4 h-4 text-[#525760] shrink-0 mt-0.5" />
-              <span>{lot.address}</span>
+              <span>
+                {lot.address}
+                {lot.commune ? ` · Sangkat ${lot.commune}` : ''}
+              </span>
             </p>
+            {lot.operatorName && (
+              <p className="text-[12px] text-[#525760]">
+                Operator: <span className="font-semibold text-[#141517]">{lot.operatorName}</span>
+              </p>
+            )}
             <div className="flex items-center flex-wrap gap-x-4 gap-y-1 text-[12px] text-[#6B7280]">
               <span className="inline-flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5" />
@@ -290,6 +298,17 @@ export const FacilityDetailDrawer: React.FC<FacilityDetailDrawerProps> = ({
               )}
               <span className="font-mono text-[11px]">
                 {lot.position.lat.toFixed(5)}°N, {lot.position.lng.toFixed(5)}°E
+              </span>
+            </div>
+            <div className="flex items-center flex-wrap gap-1.5 pt-0.5 text-[11px]">
+              <span className="px-2 py-0.5 rounded-full bg-white text-[#525760] border border-black/5">
+                Price confidence: <strong className="capitalize">{lot.priceConfidence}</strong>
+              </span>
+              <span className="px-2 py-0.5 rounded-full bg-white text-[#525760] border border-black/5">
+                Location: <strong className="capitalize">{lot.locationConfidence}</strong>
+              </span>
+              <span className="px-2 py-0.5 rounded-full bg-white text-[#525760] border border-black/5">
+                Verified: {lot.lastVerifiedDate}
               </span>
             </div>
 
@@ -398,9 +417,15 @@ export const FacilityDetailDrawer: React.FC<FacilityDetailDrawerProps> = ({
                 </div>
               </div>
 
-              {(lot.evCharging.priceNote || lot.evCharging.availabilityNote) && (
+              {(lot.evCharging.priceNote ||
+                lot.evCharging.parkingFeeSeparateNote ||
+                lot.evCharging.availabilityNote) && (
                 <p className="text-[11.5px] text-cyan-900/80 leading-relaxed">
-                  {[lot.evCharging.priceNote, lot.evCharging.availabilityNote]
+                  {[
+                    lot.evCharging.priceNote,
+                    lot.evCharging.parkingFeeSeparateNote,
+                    lot.evCharging.availabilityNote,
+                  ]
                     .filter(Boolean)
                     .join(' · ')}
                 </p>
@@ -603,6 +628,23 @@ export const FacilityDetailDrawer: React.FC<FacilityDetailDrawerProps> = ({
             <p className="text-[13px] leading-[1.6] text-[#525760]">
               {lot.description}
             </p>
+            {lot.capacity && (
+              <div className="bg-[#F8F9FA] rounded-xl p-3 text-[12px] text-[#525760] space-y-1">
+                <p>
+                  Structure:{' '}
+                  <strong className="text-[#141517] capitalize">
+                    {lot.capacity.indoorOutdoor}
+                  </strong>
+                  {lot.capacity.covered !== null &&
+                    ` · ${lot.capacity.covered ? 'Covered' : 'Uncovered'}`}
+                  {lot.capacity.totalSpaces !== null &&
+                    ` · Capacity: ${lot.capacity.totalSpaces.toLocaleString()} spaces`}
+                </p>
+                {lot.capacity.paymentMethods && lot.capacity.paymentMethods.length > 0 && (
+                  <p>Payment: {lot.capacity.paymentMethods.join(', ')}</p>
+                )}
+              </div>
+            )}
             {lot.facilities.length > 0 && (
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {lot.facilities.map((f) => (
@@ -612,6 +654,22 @@ export const FacilityDetailDrawer: React.FC<FacilityDetailDrawerProps> = ({
                   >
                     {f}
                   </span>
+                ))}
+              </div>
+            )}
+            {lot.sourceUrls.length > 0 && (
+              <div className="pt-1 flex flex-wrap gap-2 text-[11.5px]">
+                <span className="text-[#767B84]">Sources:</span>
+                {lot.sourceUrls.map((url, idx) => (
+                  <a
+                    key={url}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#141517] underline hover:text-[#4D6A0A]"
+                  >
+                    Reference {idx + 1}
+                  </a>
                 ))}
               </div>
             )}

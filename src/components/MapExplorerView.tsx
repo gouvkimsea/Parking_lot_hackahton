@@ -99,12 +99,17 @@ const PRICE_FILTER_OPTIONS: Array<{ id: PriceBracketFilter; label: string }> = [
 
 const FACILITY_TYPE_FILTER_OPTIONS: Array<{ id: FacilityType | 'all'; label: string }> = [
   { id: 'all', label: 'All Types' },
-  { id: 'public', label: 'Public' },
-  { id: 'private', label: 'Private' },
   { id: 'mall', label: 'Shopping Mall' },
-  { id: 'hotel', label: 'Hotel' },
   { id: 'commercial', label: 'Commercial Building' },
+  { id: 'hotel', label: 'Hotel / Resort' },
+  { id: 'market', label: 'Market' },
+  { id: 'hospital', label: 'Hospital / Clinic' },
+  { id: 'university', label: 'University / Campus' },
+  { id: 'entertainment', label: 'Dining / Entertainment' },
+  { id: 'public', label: 'Public Lot' },
+  { id: 'private', label: 'Private Facility' },
   { id: 'street', label: 'Street Parking' },
+  { id: 'motorcycle_lot', label: 'Motorcycle Parking' },
   { id: 'ev_station', label: 'EV Charging Station' },
 ];
 
@@ -624,6 +629,10 @@ const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
               reviewCount:
                 typeof p.userRatingCount === 'number' ? p.userRatingCount : null,
               dataSource: 'google_places',
+              priceConfidence: 'unknown',
+              locationConfidence: 'high',
+              sourceUrls: ['https://maps.google.com/'],
+              lastVerifiedDate: new Date().toISOString().slice(0, 10),
               coordinates: { x: 50, y: 50 },
               position: loc,
               floors: buildStandardDemoFloors(isEv),

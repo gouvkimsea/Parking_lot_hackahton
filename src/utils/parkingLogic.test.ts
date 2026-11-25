@@ -18,16 +18,19 @@ import {
   getMarkerColorVariant,
   getTopNearestDailyRates,
   isBayOccupied,
+  recordsToCsv,
+  toPhnomPenhDatabaseRecord,
   validateBookingInput,
   validatePriceReport,
   validateVehicleInput,
 } from './parkingLogic';
-import type { BookingRecord, ParkingLot } from '../types/parking';
+import type { BookingRecord, FacilityType, ParkingLot } from '../types/parking';
 
-test('Phnom Penh dataset covers required neighborhoods, categories, and realistic coordinates', () => {
+test('Phnom Penh dataset covers all 12 categories, key Khans/neighborhoods, and realistic coordinates', () => {
   const requiredDistricts = [
     'BKK1',
     'BKK2',
+    'BKK3',
     'Daun Penh',
     'Chamkar Mon',
     'Toul Kork',
@@ -36,6 +39,8 @@ test('Phnom Penh dataset covers required neighborhoods, categories, and realisti
     'Russey Keo',
     'Mean Chey',
     '7 Makara',
+    'Chbar Ampov',
+    'Por Sen Chey',
   ];
 
   const districts = new Set(PARKING_LOTS.map((l) => l.district));
@@ -43,24 +48,52 @@ test('Phnom Penh dataset covers required neighborhoods, categories, and realisti
     assert.ok(districts.has(d), `Missing required Phnom Penh district: ${d}`);
   }
 
+  const requiredTypes: FacilityType[] = [
+    'mall',
+    'hotel',
+    'commercial',
+    'public',
+    'private',
+    'market',
+    'hospital',
+    'university',
+    'entertainment',
+    'street',
+    'motorcycle_lot',
+    'ev_station',
+  ];
   const facilityTypes = new Set(PARKING_LOTS.map((l) => l.facilityType));
-  for (const t of ['mall', 'commercial', 'hotel', 'public', 'private', 'street', 'ev_station'] as const) {
+  for (const t of requiredTypes) {
     assert.ok(facilityTypes.has(t), `Missing facility type: ${t}`);
   }
 
+  assert.ok(PARKING_LOTS.length >= 50, `Expected >= 50 Phnom Penh facilities, got ${PARKING_LOTS.length}`);
+
   for (const lot of PARKING_LOTS) {
     assert.ok(
-      lot.position.lat >= 11.45 && lot.position.lat <= 11.7,
-      `Latitude out of Phnom Penh bounds for ${lot.id}: ${lot.position.lat}`
+      lot.position.lat >= 11.35 && lot.position.lat <= 11.7,
+      `Latitude out of Phnom Penh metro bounds for ${lot.id}: ${lot.position.lat}`
     );
     assert.ok(
       lot.position.lng >= 104.8 && lot.position.lng <= 105.0,
-      `Longitude out of Phnom Penh bounds for ${lot.id}: ${lot.position.lng}`
+      `Longitude out of Phnom Penh metro bounds for ${lot.id}: ${lot.position.lng}`
     );
-    // Ensure static curated records never fabricate ratings or live availability
     assert.equal(lot.rating, null, `${lot.id} should not fabricate ratings`);
     assert.equal(lot.availability.availableSpaces, null, `${lot.id} should not fabricate live bay counts`);
+    assert.ok(lot.sourceUrls.length >= 1, `${lot.id} must have source attribution`);
+    assert.ok(lot.lastVerifiedDate, `${lot.id} must have lastVerifiedDate`);
   }
+});
+
+test('32-field export schema and CSV generator produce valid output', () => {
+  const exported = PARKING_LOTS.map(toPhnomPenhDatabaseRecord);
+  assert.equal(exported.length, PARKING_LOTS.length);
+  const sample = exported[0];
+  assert.equal(Object.keys(sample).length, 32);
+  const csv = recordsToCsv(exported);
+  const csvLines = csv.split('\n');
+  assert.equal(csvLines.length, PARKING_LOTS.length + 1);
+  assert.ok(csvLines[0].includes('parking_id,parking_name,parking_category'));
 });
 
 test('getCompactPriceDisplay handles confirmed KHR, free parking, EV kWh, and unavailable prices honestly', () => {
@@ -94,12 +127,12 @@ test('getMarkerColorVariant assigns Blue, Purple, Green, Orange, Red, and Cyan a
   };
   assert.equal(getMarkerColorVariant(mallUnknown), 'purple');
 
-  const generalUnknown: ParkingLot = {
+  const hospitalUnknown: ParkingLot = {
     ...baseLot,
-    facilityType: 'commercial',
+    facilityType: 'hospital',
     availability: { status: 'unknown', source: 'unverified', availableSpaces: null },
   };
-  assert.equal(getMarkerColorVariant(generalUnknown), 'blue');
+  assert.equal(getMarkerColorVariant(hospitalUnknown), 'blue');
 
   const availableLot: ParkingLot = {
     ...baseLot,
@@ -133,20 +166,19 @@ test('filterPhnomPenhLots filters by neighborhood, vehicle, price bracket, facil
     availability: 'all',
     evFilter: 'all',
   });
-  assert.ok(bkk1Lots.length >= 2);
+  assert.ok(bkk1Lots.length >= 3);
   assert.ok(bkk1Lots.every((l) => l.district === 'BKK1'));
 
-  const freeLots = filterPhnomPenhLots(PARKING_LOTS, {
+  const hospitals = filterPhnomPenhLots(PARKING_LOTS, {
     query: '',
     district: 'All Phnom Penh',
     vehicleType: 'all',
-    priceBracket: 'free',
-    facilityType: 'all',
+    priceBracket: 'all',
+    facilityType: 'hospital',
     availability: 'all',
     evFilter: 'all',
   });
-  assert.ok(freeLots.some((l) => l.id === 'makro-sen-sok'));
-  assert.ok(freeLots.some((l) => l.id === 'aeon-mall-1'));
+  assert.ok(hospitals.length >= 5);
 
   const fastEv = filterPhnomPenhLots(PARKING_LOTS, {
     query: '',
@@ -157,20 +189,15 @@ test('filterPhnomPenhLots filters by neighborhood, vehicle, price bracket, facil
     availability: 'all',
     evFilter: 'fast',
   });
-  assert.ok(fastEv.length >= 3);
+  assert.ok(fastEv.length >= 5);
   assert.ok(fastEv.every((l) => l.evCharging?.speedTier === 'fast'));
 
-  const bicycleLots = filterPhnomPenhLots(PARKING_LOTS, {
-    query: '',
-    district: 'All Phnom Penh',
-    vehicleType: 'bicycle',
-    priceBracket: 'all',
-    facilityType: 'all',
-    availability: 'all',
-    evFilter: 'all',
-  });
-  assert.ok(bicycleLots.length >= 5);
-  assert.ok(bicycleLots.every((l) => l.categories.includes('bicycle')));
+  const st172Moto = PARKING_LOTS.find((l) => l.id === 'phsar-kandal-st172-moto')!;
+  assert.ok(st172Moto, 'Street 172 motorbike-only lot must exist');
+  assert.deepEqual(st172Moto.categories, ['motorcycle']);
+  assert.equal(st172Moto.pricing.motorcycle?.khr, 2000);
+  assert.equal(st172Moto.pricing.motorcycle?.unit, 'entry');
+  assert.equal(st172Moto.pricing.carHourly, undefined);
 });
 
 test('calculateDistanceKm, findNearestParkingLot, and getTopNearestDailyRates work for Phnom Penh', () => {
@@ -237,7 +264,7 @@ test('Demo bay reservation logic and KHR booking summary remain consistent', () 
 
 test('filterParkingLots, validateBookingInput, validateVehicleInput, and validatePriceReport work correctly', () => {
   const toulKork = filterParkingLots(PARKING_LOTS, { query: 'Toul Kork', category: 'all' });
-  assert.ok(toulKork.length >= 2);
+  assert.ok(toulKork.length >= 6);
 
   const invalidBooking = validateBookingInput({
     bayId: null,

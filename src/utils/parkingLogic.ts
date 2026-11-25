@@ -7,8 +7,10 @@ import type {
   MarkerColorVariant,
   ParkingBay,
   ParkingLot,
+  PhnomPenhParkingRecord,
   PriceBracketFilter,
   PriceReport,
+  RateValue,
   VehicleCategory,
 } from '../types/parking';
 
@@ -25,12 +27,17 @@ export const SERVICE_FEE_RATE = 0.05;
 export const MIN_SERVICE_FEE_KHR = 1000;
 
 export const FACILITY_TYPE_LABELS: Record<FacilityType, string> = {
-  mall: 'Shopping Mall',
+  mall: 'Shopping Mall / Retail',
+  hotel: 'Hotel / Resort',
   commercial: 'Commercial Building',
-  hotel: 'Hotel Parking',
   public: 'Public Parking Lot',
-  private: 'Private Facility',
-  street: 'Street Parking',
+  private: 'Private Parking',
+  market: 'Market Parking',
+  hospital: 'Hospital / Clinic',
+  university: 'University / Campus',
+  entertainment: 'Dining / Entertainment',
+  street: 'Permitted Street Parking',
+  motorcycle_lot: 'Motorcycle Parking',
   ev_station: 'EV Charging Station',
 };
 
@@ -646,4 +653,103 @@ export function formatBookingCode(bayLabel: string, seedNumber: number): string 
   const normalizedBay = bayLabel.replace(/[^A-Z0-9]/gi, '').toUpperCase();
   const suffix = String(Math.abs(seedNumber) % 9000 + 1000);
   return `PK-${normalizedBay}-${suffix}`;
+}
+
+function formatRateForExport(rate?: RateValue): string | null {
+  if (!rate || rate.khr === null || rate.khr === undefined) return null;
+  if (rate.khr === 0) return '0 KHR (Free)';
+  const usdSuffix =
+    rate.usd !== undefined && rate.usd !== null
+      ? ` (~$${rate.usd.toFixed(2)})`
+      : '';
+  return `${Math.round(rate.khr).toLocaleString('en-US')} KHR/${rate.unit}${usdSuffix}`;
+}
+
+export function toPhnomPenhDatabaseRecord(lot: ParkingLot): PhnomPenhParkingRecord {
+  const monthlyParts: string[] = [];
+  if (lot.pricing.monthlyCar?.khr) {
+    monthlyParts.push(`Car: ${formatRateForExport(lot.pricing.monthlyCar)}`);
+  }
+  if (lot.pricing.monthlyMotorcycle?.khr) {
+    monthlyParts.push(`Moto: ${formatRateForExport(lot.pricing.monthlyMotorcycle)}`);
+  }
+
+  const cap = lot.capacity;
+  const capSummary = cap
+    ? [
+        cap.totalSpaces !== null ? `Total: ${cap.totalSpaces}` : null,
+        cap.carSpaces ? `Car: ${cap.carSpaces}` : null,
+        cap.motorcycleSpaces ? `Moto: ${cap.motorcycleSpaces}` : null,
+        cap.evSpaces ? `EV: ${cap.evSpaces}` : null,
+      ]
+        .filter(Boolean)
+        .join('; ') || null
+    : null;
+
+  return {
+    parking_id: lot.id,
+    parking_name: lot.name,
+    parking_category: lot.facilityType,
+    operator_name: lot.operatorName ?? null,
+    address: lot.address,
+    district: lot.district,
+    commune: lot.commune ?? null,
+    village: lot.village ?? null,
+    latitude: lot.position.lat,
+    longitude: lot.position.lng,
+    google_maps_url:
+      lot.googleMapsUrl ??
+      `https://www.google.com/maps/search/?api=1&query=${lot.position.lat},${lot.position.lng}`,
+    motorcycle_hourly_fee: formatRateForExport(lot.pricing.motorcycle),
+    motorcycle_daily_fee: formatRateForExport(lot.pricing.motorcycleDaily),
+    car_hourly_fee: formatRateForExport(lot.pricing.carHourly),
+    car_daily_fee: formatRateForExport(lot.pricing.carDaily ?? lot.pricing.daily),
+    monthly_fee: monthlyParts.length > 0 ? monthlyParts.join(' | ') : null,
+    free_parking_conditions: lot.pricing.freeRule ?? null,
+    operating_hours: lot.openHours,
+    parking_capacity: capSummary,
+    parking_type:
+      cap?.indoorOutdoor && cap.indoorOutdoor !== 'unknown'
+        ? cap.indoorOutdoor
+        : 'Unknown',
+    covered_parking: cap?.covered ?? null,
+    payment_methods: cap?.paymentMethods?.join(', ') ?? null,
+    ev_charging_available: Boolean(lot.evCharging || lot.categories.includes('ev')),
+    ev_charging_provider: lot.evCharging?.provider ?? null,
+    ev_connector_types: lot.evCharging?.connectorTypes.join(', ') ?? null,
+    ev_charging_speed: lot.evCharging?.maxPowerKw
+      ? `${lot.evCharging.maxPowerKw} kW (${lot.evCharging.speedTier})`
+      : lot.evCharging?.speedTier && lot.evCharging.speedTier !== 'unknown'
+        ? lot.evCharging.speedTier
+        : null,
+    ev_price_per_kwh:
+      lot.evCharging?.pricePerKwhKhr !== null &&
+      lot.evCharging?.pricePerKwhKhr !== undefined
+        ? `${lot.evCharging.pricePerKwhKhr.toLocaleString('en-US')} KHR/kWh`
+        : null,
+    parking_status: AVAILABILITY_LABELS[lot.availability.status],
+    price_confidence: lot.priceConfidence,
+    location_confidence: lot.locationConfidence,
+    source_urls: lot.sourceUrls,
+    last_verified_date: lot.lastVerifiedDate,
+  };
+}
+
+function escapeCsvCell(val: unknown): string {
+  if (val === null || val === undefined) return '';
+  const str = Array.isArray(val) ? val.join(' | ') : String(val);
+  if (/[",\n\r]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+export function recordsToCsv(records: PhnomPenhParkingRecord[]): string {
+  if (records.length === 0) return '';
+  const headers = Object.keys(records[0]) as Array<keyof PhnomPenhParkingRecord>;
+  const lines = [headers.join(',')];
+  for (const row of records) {
+    lines.push(headers.map((h) => escapeCsvCell(row[h])).join(','));
+  }
+  return lines.join('\n');
 }
