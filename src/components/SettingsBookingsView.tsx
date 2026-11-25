@@ -11,13 +11,15 @@ import { USER_AVATAR_URL } from '../data/parkingLots';
 import type {
   BookingRecord,
   ParkingLot,
+  PriceReport,
   SavedVehicle,
   UserPreferences,
   VehicleCategory,
 } from '../types/parking';
 import {
-  countAvailableSpaces,
+  FACILITY_TYPE_LABELS,
   formatCurrency,
+  getCompactPriceDisplay,
   validateVehicleInput,
 } from '../utils/parkingLogic';
 
@@ -27,6 +29,7 @@ interface SettingsBookingsViewProps {
   favoriteIds: Set<string>;
   vehicles: SavedVehicle[];
   preferences: UserPreferences;
+  priceReports: PriceReport[];
   activeBookedBayKeys: Set<string>;
   onCancelBooking: (bookingId: string) => void;
   onShowPass: (booking: BookingRecord) => void;
@@ -42,7 +45,7 @@ export const SettingsBookingsView: React.FC<SettingsBookingsViewProps> = ({
   favoriteIds,
   vehicles,
   preferences,
-  activeBookedBayKeys,
+  priceReports,
   onCancelBooking,
   onShowPass,
   onOpenLot,
@@ -87,9 +90,9 @@ export const SettingsBookingsView: React.FC<SettingsBookingsViewProps> = ({
   return (
     <section
       aria-label="Account Settings and Bookings"
-      className="max-w-[1360px] mx-auto w-full px-4 sm:px-5 lg:px-6 xl:px-8 pb-28 md:pb-8"
+      className="max-w-[1380px] mx-auto w-full px-4 sm:px-5 lg:px-8 pb-28 lg:pb-10"
     >
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column: Profile + Vehicles + Preferences */}
         <div className="lg:col-span-5 space-y-6">
           {/* Profile Summary Card */}
@@ -105,7 +108,7 @@ export const SettingsBookingsView: React.FC<SettingsBookingsViewProps> = ({
                 Sarah Lin
               </h1>
               <p className="text-[13px] text-[#767B84]">
-                sarah.lin@example.com · Downtown Pass
+                Phnom Penh Driver · {priceReports.length} Price Report{priceReports.length === 1 ? '' : 's'}
               </p>
               <p className="text-[12.5px] font-semibold text-[#141517] mt-1.5 tabular-nums">
                 {activeBookings.length} Active Booking{activeBookings.length === 1 ? '' : 's'}
@@ -181,7 +184,7 @@ export const SettingsBookingsView: React.FC<SettingsBookingsViewProps> = ({
                         setNewVehiclePlate(e.target.value.toUpperCase());
                         setVehicleErrors((prev) => ({ ...prev, plate: undefined }));
                       }}
-                      placeholder="EV-4821"
+                      placeholder="PP-2AB-4821"
                       className="w-full h-10 px-3.5 rounded-xl bg-white font-mono text-[13.5px] text-[#141517] focus:outline-none focus:ring-2 focus:ring-[#C5EC45]"
                     />
                     {vehicleErrors.plate && (
@@ -207,9 +210,9 @@ export const SettingsBookingsView: React.FC<SettingsBookingsViewProps> = ({
                       className="w-full h-10 px-3 rounded-xl bg-white text-[13.5px] text-[#141517] focus:outline-none focus:ring-2 focus:ring-[#C5EC45]"
                     >
                       <option value="car">Car</option>
-                      <option value="bike">Bike</option>
-                      <option value="ev">EV</option>
-                      <option value="bus">Bus</option>
+                      <option value="motorcycle">Motorcycle</option>
+                      <option value="bicycle">Bicycle</option>
+                      <option value="ev">Electric Vehicle</option>
                     </select>
                   </div>
                 </div>
@@ -428,7 +431,7 @@ export const SettingsBookingsView: React.FC<SettingsBookingsViewProps> = ({
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 {favoriteLots.map((lot) => {
-                  const open = countAvailableSpaces(lot, activeBookedBayKeys);
+                  const price = getCompactPriceDisplay(lot);
                   return (
                     <button
                       key={lot.id}
@@ -447,10 +450,10 @@ export const SettingsBookingsView: React.FC<SettingsBookingsViewProps> = ({
                           {lot.name}
                         </p>
                         <p className="text-[12px] text-[#767B84] truncate">
-                          {lot.district}
+                          {lot.district} · {FACILITY_TYPE_LABELS[lot.facilityType]}
                         </p>
                         <p className="text-[12.5px] font-semibold text-[#141517] mt-1 tabular-nums">
-                          {formatCurrency(lot.pricePerHour)}/hr · {open} open
+                          {price.primaryText}
                         </p>
                       </div>
                     </button>

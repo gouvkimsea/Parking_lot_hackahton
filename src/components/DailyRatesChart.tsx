@@ -9,6 +9,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { PHNOM_PENH_CENTER } from '../data/parkingLots';
 import type { ParkingLot } from '../types/parking';
 import {
   DEFAULT_DAILY_STAY_HOURS,
@@ -21,6 +22,7 @@ interface DailyRatesChartProps {
   lots: ParkingLot[];
   selectedLotId: string;
   activeBookedBayKeys: Set<string>;
+  referencePosition?: { lat: number; lng: number } | null;
   onSelectLot: (lotId: string) => void;
   compact?: boolean;
 }
@@ -56,8 +58,8 @@ const CustomDailyRateTooltip: React.FC<CustomTooltipProps> = ({
         </span>
       </p>
       <p className="text-white/75 mt-1 tabular-nums">
-        {item.distanceKm.toFixed(1)} km away · {item.availableSpaces} open ·{' '}
-        {item.rating.toFixed(1)}★
+        {item.distanceKm.toFixed(1)} km from center
+        {item.rating !== null ? ` · ${item.rating.toFixed(1)}★` : ''}
       </p>
     </div>
   );
@@ -67,14 +69,22 @@ export const DailyRatesChart: React.FC<DailyRatesChartProps> = ({
   lots,
   selectedLotId,
   activeBookedBayKeys,
+  referencePosition,
   onSelectLot,
   compact = false,
 }) => {
   const [stayHours, setStayHours] = useState<number>(DEFAULT_DAILY_STAY_HOURS);
 
   const chartData = useMemo(
-    () => getTopNearestDailyRates(lots, activeBookedBayKeys, 5, stayHours),
-    [lots, activeBookedBayKeys, stayHours]
+    () =>
+      getTopNearestDailyRates(
+        lots,
+        activeBookedBayKeys,
+        referencePosition ?? PHNOM_PENH_CENTER,
+        5,
+        stayHours
+      ),
+    [lots, activeBookedBayKeys, referencePosition, stayHours]
   );
 
   const summaryStats = useMemo(() => {
@@ -174,7 +184,7 @@ export const DailyRatesChart: React.FC<DailyRatesChartProps> = ({
                 type="number"
                 axisLine={false}
                 tickLine={false}
-                tickFormatter={(value: number) => `$${value}`}
+                tickFormatter={(value: number) => `${Math.round(value / 1000)}k`}
                 tick={{ fill: '#767B84', fontSize: 11 }}
               />
               <YAxis
@@ -239,7 +249,7 @@ export const DailyRatesChart: React.FC<DailyRatesChartProps> = ({
               <YAxis
                 axisLine={false}
                 tickLine={false}
-                tickFormatter={(value: number) => `$${value}`}
+                tickFormatter={(value: number) => `${Math.round(value / 1000)}k`}
                 tick={{ fill: '#767B84', fontSize: 11.5 }}
                 width={48}
               />
@@ -302,7 +312,7 @@ export const DailyRatesChart: React.FC<DailyRatesChartProps> = ({
                   {item.shortName}
                 </p>
                 <p className="text-[11px] text-[#767B84] tabular-nums">
-                  {item.distanceKm.toFixed(1)} km · {item.availableSpaces} open
+                  {item.distanceKm.toFixed(1)} km · {item.district}
                 </p>
               </div>
               <span className="text-[13px] font-extrabold text-[#141517] tabular-nums shrink-0">

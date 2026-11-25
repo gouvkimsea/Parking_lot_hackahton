@@ -12,52 +12,167 @@ import {
 } from '@vis.gl/react-google-maps';
 import {
   AlertCircle,
-  Clock,
+  BatteryCharging,
+  Bike,
+  Car,
   Crosshair,
-  Heart,
+  Filter,
   Layers,
   Loader2,
   MapPin,
   Navigation,
+  RotateCcw,
   Route as RouteIcon,
   Search,
+  Sparkles,
+  Star,
   X,
+  Zap,
 } from 'lucide-react';
-import type { ParkingLot, VehicleCategory } from '../types/parking';
 import {
+  PHNOM_PENH_CENTER,
+  PHNOM_PENH_DISTRICTS,
+  buildStandardDemoFloors,
+} from '../data/parkingLots';
+import type {
+  AvailabilityStatus,
+  EvFilterMode,
+  FacilityType,
+  MarkerColorVariant,
+  ParkingLot,
+  PriceBracketFilter,
+  VehicleCategory,
+} from '../types/parking';
+import {
+  AVAILABILITY_LABELS,
+  FACILITY_TYPE_LABELS,
+  VEHICLE_TYPE_LABELS,
   calculateDistanceKm,
-  countAvailableSpaces,
-  findNearestParkingLot,
-  formatCurrency,
+  getCompactPriceDisplay,
+  getMarkerColorVariant,
 } from '../utils/parkingLogic';
 
 interface MapExplorerViewProps {
-  lots: ParkingLot[];
   allLots: ParkingLot[];
-  selectedLotId: string;
+  filteredLots: ParkingLot[];
+  selectedLotId: string | null;
   searchQuery: string;
+  selectedDistrict: string;
+  vehicleType: VehicleCategory | 'all';
+  priceBracket: PriceBracketFilter;
+  facilityType: FacilityType | 'all';
+  availabilityFilter: AvailabilityStatus | 'all';
+  evFilter: EvFilterMode;
+  nearUserOnly: boolean;
+  userPosition: google.maps.LatLngLiteral | null;
   onSearchChange: (q: string) => void;
-  activeCategory: VehicleCategory | 'all';
-  onCategoryChange: (cat: VehicleCategory | 'all') => void;
-  favoriteIds: Set<string>;
-  onToggleFavorite: (lotId: string) => void;
-  activeBookedBayKeys: Set<string>;
+  onDistrictChange: (district: string) => void;
+  onVehicleTypeChange: (cat: VehicleCategory | 'all') => void;
+  onPriceBracketChange: (bracket: PriceBracketFilter) => void;
+  onFacilityTypeChange: (type: FacilityType | 'all') => void;
+  onAvailabilityFilterChange: (status: AvailabilityStatus | 'all') => void;
+  onEvFilterChange: (mode: EvFilterMode) => void;
+  onNearUserOnlyChange: (nearOnly: boolean) => void;
+  onResetFilters: () => void;
+  onUserPositionChange: (pos: google.maps.LatLngLiteral | null) => void;
   onSelectLot: (lotId: string) => void;
   onOpenDetails: (lotId: string) => void;
-  onOpenSelectSpace: (lotId: string) => void;
+  onMergeGooglePlacesLots: (discovered: ParkingLot[]) => void;
+  externalRouteRequest: { lot: ParkingLot; seq: number } | null;
 }
 
-const MAP_CATEGORIES: Array<{ id: VehicleCategory | 'all'; label: string }> = [
-  { id: 'all', label: 'All' },
+const VEHICLE_FILTER_OPTIONS: Array<{ id: VehicleCategory | 'all'; label: string }> = [
+  { id: 'all', label: 'All Vehicles' },
   { id: 'car', label: 'Car' },
-  { id: 'bike', label: 'Bike' },
-  { id: 'bus', label: 'Bus' },
-  { id: 'ev', label: 'EV' },
+  { id: 'motorcycle', label: 'Motorcycle' },
+  { id: 'bicycle', label: 'Bicycle' },
+  { id: 'ev', label: 'Electric Vehicle' },
 ];
 
-const DEFAULT_CENTER: google.maps.LatLngLiteral = {
-  lat: 37.7872,
-  lng: -122.4018,
+const PRICE_FILTER_OPTIONS: Array<{ id: PriceBracketFilter; label: string }> = [
+  { id: 'all', label: 'Any Price' },
+  { id: 'free', label: 'Free parking' },
+  { id: 'under_2000', label: 'Under 2,000 KHR/hr' },
+  { id: '2000_to_5000', label: '2,000–5,000 KHR/hr' },
+  { id: 'above_5000', label: 'Above 5,000 KHR/hr' },
+];
+
+const FACILITY_TYPE_FILTER_OPTIONS: Array<{ id: FacilityType | 'all'; label: string }> = [
+  { id: 'all', label: 'All Types' },
+  { id: 'public', label: 'Public' },
+  { id: 'private', label: 'Private' },
+  { id: 'mall', label: 'Shopping Mall' },
+  { id: 'hotel', label: 'Hotel' },
+  { id: 'commercial', label: 'Commercial Building' },
+  { id: 'street', label: 'Street Parking' },
+  { id: 'ev_station', label: 'EV Charging Station' },
+];
+
+const AVAILABILITY_FILTER_OPTIONS: Array<{
+  id: AvailabilityStatus | 'all';
+  label: string;
+}> = [
+  { id: 'all', label: 'Any Availability' },
+  { id: 'available', label: 'Available' },
+  { id: 'limited', label: 'Limited spaces' },
+  { id: 'full', label: 'Full' },
+  { id: 'unknown', label: 'Unknown' },
+];
+
+const EV_FILTER_OPTIONS: Array<{ id: EvFilterMode; label: string }> = [
+  { id: 'all', label: 'All EV Stations' },
+  { id: 'available', label: 'Available' },
+  { id: 'fast', label: 'Fast Charging' },
+  { id: 'standard', label: 'Standard Charging' },
+];
+
+const MARKER_LEGEND: Array<{
+  variant: MarkerColorVariant;
+  label: string;
+  dotClass: string;
+}> = [
+  { variant: 'blue', label: 'General', dotClass: 'bg-blue-600' },
+  { variant: 'purple', label: 'Mall', dotClass: 'bg-purple-600' },
+  { variant: 'green', label: 'Available', dotClass: 'bg-emerald-600' },
+  { variant: 'orange', label: 'Limited', dotClass: 'bg-orange-500' },
+  { variant: 'red', label: 'Full', dotClass: 'bg-red-600' },
+  { variant: 'cyan', label: 'EV Station', dotClass: 'bg-cyan-500' },
+];
+
+const MARKER_STYLES: Record<
+  MarkerColorVariant,
+  { bg: string; text: string; ring: string }
+> = {
+  blue: {
+    bg: 'bg-blue-600 hover:bg-blue-700',
+    text: 'text-white',
+    ring: 'ring-blue-300',
+  },
+  purple: {
+    bg: 'bg-purple-600 hover:bg-purple-700',
+    text: 'text-white',
+    ring: 'ring-purple-300',
+  },
+  green: {
+    bg: 'bg-emerald-600 hover:bg-emerald-700',
+    text: 'text-white',
+    ring: 'ring-emerald-300',
+  },
+  orange: {
+    bg: 'bg-orange-500 hover:bg-orange-600',
+    text: 'text-white',
+    ring: 'ring-orange-300',
+  },
+  red: {
+    bg: 'bg-red-600 hover:bg-red-700',
+    text: 'text-white',
+    ring: 'ring-red-300',
+  },
+  cyan: {
+    bg: 'bg-cyan-500 hover:bg-cyan-600',
+    text: 'text-[#083344]',
+    ring: 'ring-cyan-200',
+  },
 };
 
 const Z_INDEX_SELECTED = 1000;
@@ -93,12 +208,13 @@ interface ParkingMarkerItemProps {
   isSelected: boolean;
   isHovered: boolean;
   baseZIndex: number;
-  openCount: number;
+  userPosition: google.maps.LatLngLiteral | null;
   showInfoWindow: boolean;
   onHoverChange: (hovered: boolean) => void;
   onSelect: () => void;
   onCloseInfoWindow: () => void;
-  onSelectSpace: () => void;
+  onDirections: () => void;
+  onViewDetails: () => void;
 }
 
 const ParkingMarkerItem: React.FC<ParkingMarkerItemProps> = ({
@@ -106,14 +222,21 @@ const ParkingMarkerItem: React.FC<ParkingMarkerItemProps> = ({
   isSelected,
   isHovered,
   baseZIndex,
-  openCount,
+  userPosition,
   showInfoWindow,
   onHoverChange,
   onSelect,
   onCloseInfoWindow,
-  onSelectSpace,
+  onDirections,
+  onViewDetails,
 }) => {
   const [markerRef, marker] = useAdvancedMarkerRef();
+  const variant = getMarkerColorVariant(lot);
+  const styles = MARKER_STYLES[variant];
+  const priceDisplay = getCompactPriceDisplay(lot);
+  const distanceKm = userPosition
+    ? calculateDistanceKm(userPosition, lot.position)
+    : null;
 
   const zIndex = isSelected
     ? Z_INDEX_SELECTED
@@ -121,29 +244,44 @@ const ParkingMarkerItem: React.FC<ParkingMarkerItemProps> = ({
       ? Z_INDEX_HOVER
       : baseZIndex;
 
+  const markerLabel =
+    lot.facilityType === 'ev_station'
+      ? lot.evCharging?.maxPowerKw
+        ? `${lot.evCharging.maxPowerKw}kW`
+        : 'EV'
+      : lot.pricing.isFree && lot.pricePerHourKhr === 0
+        ? 'Free'
+        : lot.pricing.carHourly?.khr
+          ? `${(lot.pricing.carHourly.khr / 1000).toFixed(lot.pricing.carHourly.khr % 1000 === 0 ? 0 : 1)}k`
+          : lot.pricing.motorcycle?.khr
+            ? `${(lot.pricing.motorcycle.khr / 1000).toFixed(0)}k`
+            : 'P';
+
   return (
     <>
       <AdvancedMarker
         ref={markerRef}
         position={lot.position}
         zIndex={zIndex}
-        title={`${lot.name} — ${formatCurrency(lot.pricePerHour)}/hr`}
+        title={`${lot.name} — ${priceDisplay.primaryText}`}
         onClick={onSelect}
         onMouseEnter={() => onHoverChange(true)}
         onMouseLeave={() => onHoverChange(false)}
       >
         <button
           type="button"
-          aria-label={`${lot.name}, ${formatCurrency(lot.pricePerHour)} per hour, ${openCount} spaces open`}
+          aria-label={`${lot.name}, ${FACILITY_TYPE_LABELS[lot.facilityType]}, ${priceDisplay.primaryText}`}
           aria-pressed={isSelected}
-          className={`px-3.5 py-2 rounded-full text-[13px] font-bold tabular-nums transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141517] ${
-            isSelected
-              ? 'bg-[#C5EC45] text-[#141517] scale-110 shadow-[0_10px_24px_rgba(20,21,23,0.28)] ring-2 ring-[#141517]'
-              : 'bg-white text-[#141517] hover:bg-[#141517] hover:text-white shadow-[0_6px_16px_rgba(20,21,23,0.18)] border border-black/10'
+          className={`px-2.5 py-1.5 rounded-full text-[11.5px] font-bold tabular-nums inline-flex items-center gap-1 transition-all duration-150 shadow-[0_6px_16px_rgba(20,21,23,0.24)] border border-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141517] ${
+            styles.bg
+          } ${styles.text} ${
+            isSelected ? `scale-115 ring-4 ${styles.ring}` : ''
           }`}
         >
-          <span>${lot.pricePerHour}</span>
-          <span className="text-[10px] font-medium opacity-80">/hr</span>
+          {lot.facilityType === 'ev_station' && (
+            <Zap className="w-3.5 h-3.5 shrink-0 fill-current" aria-hidden="true" />
+          )}
+          <span>{markerLabel}</span>
         </button>
       </AdvancedMarker>
 
@@ -151,22 +289,85 @@ const ParkingMarkerItem: React.FC<ParkingMarkerItemProps> = ({
         <InfoWindow
           anchor={marker}
           onCloseClick={onCloseInfoWindow}
-          pixelOffset={[0, -6]}
-          maxWidth={240}
+          pixelOffset={[0, -8]}
+          maxWidth={300}
         >
-          <div className="p-1 font-sans text-[#141517]">
-            <p className="text-[14px] font-bold leading-snug">{lot.name}</p>
-            <p className="text-[12px] text-[#6B7280] mt-0.5">{lot.address}</p>
-            <div className="mt-2 flex items-center justify-between gap-3">
-              <span className="text-[12px] font-semibold tabular-nums">
-                {formatCurrency(lot.pricePerHour)}/hr · {openCount} open
-              </span>
+          <div className="p-1.5 font-sans text-[#141517] min-w-[235px] max-w-[280px] space-y-2">
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10.5px] font-semibold uppercase tracking-wide text-[#525760]">
+                  {FACILITY_TYPE_LABELS[lot.facilityType]}
+                </span>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                    lot.availability.status === 'available'
+                      ? 'bg-emerald-50 text-emerald-700'
+                      : lot.availability.status === 'limited'
+                        ? 'bg-amber-50 text-amber-700'
+                        : lot.availability.status === 'full'
+                          ? 'bg-red-50 text-red-700'
+                          : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {AVAILABILITY_LABELS[lot.availability.status]}
+                  {lot.availability.availableSpaces !== null
+                    ? ` (${lot.availability.availableSpaces})`
+                    : ''}
+                </span>
+              </div>
+              <p className="text-[14px] font-bold leading-snug mt-0.5">{lot.name}</p>
+              <p className="text-[11.5px] text-[#6B7280]">{lot.district}, Phnom Penh</p>
+            </div>
+
+            <div className="bg-[#F6F7F8] rounded-xl px-2.5 py-2 space-y-1 text-[11.5px]">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[#6B7280]">Price</span>
+                <span className="font-bold text-[#141517] tabular-nums">
+                  {priceDisplay.primaryText}
+                  {priceDisplay.secondaryUsd ? ` (${priceDisplay.secondaryUsd})` : ''}
+                </span>
+              </div>
+              {distanceKm !== null && (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[#6B7280]">Distance</span>
+                  <span className="font-semibold text-[#141517] tabular-nums">
+                    {distanceKm.toFixed(1)} km away
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[#6B7280]">Vehicles</span>
+                <span className="font-medium text-[#141517] text-right">
+                  {lot.categories.map((c) => VEHICLE_TYPE_LABELS[c]).join(', ')}
+                </span>
+              </div>
+              {lot.rating !== null && (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[#6B7280]">Rating</span>
+                  <span className="inline-flex items-center gap-1 font-semibold">
+                    <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                    {lot.rating.toFixed(1)}
+                    {lot.reviewCount !== null ? ` (${lot.reviewCount})` : ''}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-0.5">
               <button
                 type="button"
-                onClick={onSelectSpace}
-                className="px-2.5 py-1 rounded-full bg-[#C5EC45] hover:bg-[#B6DE35] text-[#141517] text-[11px] font-bold whitespace-nowrap"
+                onClick={onDirections}
+                className="px-2.5 py-1.5 rounded-full bg-[#F4F5F6] hover:bg-[#E5E7EB] text-[#141517] text-[11.5px] font-semibold inline-flex items-center justify-center gap-1"
               >
-                Pick Bay
+                <RouteIcon className="w-3.5 h-3.5" />
+                Directions
+              </button>
+              <button
+                type="button"
+                onClick={onViewDetails}
+                className="px-2.5 py-1.5 rounded-full bg-[#C5EC45] hover:bg-[#B6DE35] text-[#141517] text-[11.5px] font-bold"
+              >
+                View Details
               </button>
             </div>
           </div>
@@ -178,36 +379,40 @@ const ParkingMarkerItem: React.FC<ParkingMarkerItemProps> = ({
 
 interface GoogleMapCanvasProps {
   lots: ParkingLot[];
-  activeLot: ParkingLot;
-  activeBookedBayKeys: Set<string>;
+  selectedLot: ParkingLot | null;
+  focusLotTrigger: { lot: ParkingLot; seq: number } | null;
   mapType: 'roadmap' | 'hybrid';
   userPosition: google.maps.LatLngLiteral | null;
   searchedPlace: SearchedPlaceResult | null;
   routeTrigger: { lot: ParkingLot; origin: google.maps.LatLngLiteral; seq: number } | null;
   placeSearchTrigger: { query: string; seq: number } | null;
+  placesDiscoverySeq: number;
   recenterSeq: number;
-  centerOnUserSeq: number;
-  onSelectLot: (lotId: string) => void;
-  onOpenSelectSpace: (lotId: string) => void;
+  onSelectLotFromMarker: (lotId: string) => void;
+  onOpenDetails: (lotId: string) => void;
+  onRequestDirections: (lot: ParkingLot) => void;
   onSearchedPlace: (place: SearchedPlaceResult | null, statusMsg: string | null) => void;
   onRouteComputed: (summary: RouteSummary | null, errorMsg: string | null) => void;
+  onPlacesDiscovered: (places: ParkingLot[], msg: string) => void;
 }
 
 const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
   lots,
-  activeLot,
-  activeBookedBayKeys,
+  selectedLot,
+  focusLotTrigger,
   mapType,
   userPosition,
   searchedPlace,
   routeTrigger,
   placeSearchTrigger,
+  placesDiscoverySeq,
   recenterSeq,
-  centerOnUserSeq,
-  onSelectLot,
-  onOpenSelectSpace,
+  onSelectLotFromMarker,
+  onOpenDetails,
+  onRequestDirections,
   onSearchedPlace,
   onRouteComputed,
+  onPlacesDiscovered,
 }) => {
   const map = useMap();
   const status = useApiLoadingStatus();
@@ -218,7 +423,6 @@ const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
   const [infoWindowLotId, setInfoWindowLotId] = useState<string | null>(null);
   const activePolylinesRef = useRef<google.maps.Polyline[]>([]);
 
-  // Sort markers descending by latitude so southern markers render visually in front
   const sortedLots = useMemo(
     () => [...lots].sort((a, b) => b.position.lat - a.position.lat),
     [lots]
@@ -231,34 +435,31 @@ const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
     activePolylinesRef.current = [];
   }, []);
 
-  // Cleanup route polylines on unmount
   useEffect(() => {
     return () => clearRoutePolylines();
   }, [clearRoutePolylines]);
 
-  // Smoothly pan when activeLot changes
+  // Focus map and open InfoWindow when user clicks a parking lot from the left list
   useEffect(() => {
-    if (!map || !activeLot) return;
-    map.panTo(activeLot.position);
-  }, [map, activeLot]);
+    if (!map || !focusLotTrigger) return;
+    map.panTo(focusLotTrigger.lot.position);
+    const currentZoom = map.getZoom() ?? 13;
+    if (currentZoom < 14) {
+      map.setZoom(15);
+    }
+    setInfoWindowLotId(focusLotTrigger.lot.id);
+  }, [map, focusLotTrigger]);
 
-  // Recenter camera on downtown garages when requested
+  // Recenter camera to user location or Phnom Penh City Center
   useEffect(() => {
     if (!map || recenterSeq === 0) return;
     clearRoutePolylines();
     onRouteComputed(null, null);
-    map.panTo(DEFAULT_CENTER);
-    map.setZoom(15);
-  }, [map, recenterSeq, clearRoutePolylines, onRouteComputed]);
+    map.panTo(userPosition ?? PHNOM_PENH_CENTER);
+    map.setZoom(userPosition ? 15 : 13);
+  }, [map, recenterSeq, userPosition, clearRoutePolylines, onRouteComputed]);
 
-  // Center map directly on the user's live geolocation when requested
-  useEffect(() => {
-    if (!map || centerOnUserSeq === 0 || !userPosition) return;
-    map.panTo(userPosition);
-    map.setZoom(15);
-  }, [map, centerOnUserSeq, userPosition]);
-
-  // Modern Places API (New) text search when user explicitly searches on Google Maps
+  // Search locations, landmarks, streets in Phnom Penh via Google Places API (New)
   useEffect(() => {
     if (!placeSearchTrigger || !placesLib || !map) return;
     const query = placeSearchTrigger.query.trim();
@@ -267,23 +468,21 @@ const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
     let cancelled = false;
     (async () => {
       try {
-        const center = map.getCenter()?.toJSON() ?? DEFAULT_CENTER;
-        // Modern Places API (New): Place.searchByText via useMapsLibrary('places')
-        // Docs: https://developers.google.com/maps/documentation/javascript/place-search?utm_campaign=gmp_mcp_codeassist_v1_aistudio
         const response = await placesLib.Place.searchByText({
-          textQuery: query,
+          textQuery: `${query}, Phnom Penh, Cambodia`,
           fields: ['id', 'displayName', 'formattedAddress', 'location'],
           locationBias: {
-            center,
-            radius: 15000,
+            center: PHNOM_PENH_CENTER,
+            radius: 16000,
           },
+          region: 'KH',
           maxResultCount: 1,
         });
 
         if (cancelled) return;
         const topPlace = response.places?.[0];
         if (!topPlace || !topPlace.location) {
-          onSearchedPlace(null, `No Google Maps location found for "${query}".`);
+          onSearchedPlace(null, `No Phnom Penh map location found for "${query}".`);
           return;
         }
 
@@ -293,7 +492,7 @@ const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
         onSearchedPlace(
           {
             name: topPlace.displayName || query,
-            address: topPlace.formattedAddress || 'Location on Google Maps',
+            address: topPlace.formattedAddress || 'Phnom Penh, Cambodia',
             position: pos,
           },
           null
@@ -305,7 +504,7 @@ const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
         }
         onSearchedPlace(
           null,
-          'Unable to search Google Maps right now. Filtering local parking garages instead.'
+          'Google Places search unavailable; filtering Phnom Penh directory locally.'
         );
       }
     })();
@@ -315,8 +514,148 @@ const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
     };
   }, [placeSearchTrigger, placesLib, map, onSearchedPlace]);
 
-  // Modern Routes API: Route.computeRoutes via useMapsLibrary('routes')
-  // Docs: https://developers.google.com/maps/documentation/javascript/routes?utm_campaign=gmp_mcp_codeassist_v1_aistudio
+  // Discover real parking & EV charging facilities around map center via Google Places API (New)
+  useEffect(() => {
+    if (placesDiscoverySeq === 0 || !placesLib || !map) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const center = map.getCenter()?.toJSON() ?? PHNOM_PENH_CENTER;
+        const [parkingRes, evRes] = await Promise.all([
+          placesLib.Place.searchByText({
+            textQuery: 'parking lot garage Phnom Penh',
+            fields: [
+              'id',
+              'displayName',
+              'formattedAddress',
+              'location',
+              'rating',
+              'userRatingCount',
+              'regularOpeningHours',
+            ],
+            locationBias: { center, radius: 6000 },
+            region: 'KH',
+            maxResultCount: 10,
+          }),
+          placesLib.Place.searchByText({
+            textQuery: 'EV charging station Phnom Penh',
+            fields: [
+              'id',
+              'displayName',
+              'formattedAddress',
+              'location',
+              'rating',
+              'userRatingCount',
+              'regularOpeningHours',
+            ],
+            locationBias: { center, radius: 10000 },
+            region: 'KH',
+            maxResultCount: 8,
+          }),
+        ]);
+
+        if (cancelled) return;
+
+        const mapped: ParkingLot[] = [];
+        const addMapped = (
+          places: google.maps.places.Place[] | undefined,
+          isEv: boolean
+        ) => {
+          for (const p of places ?? []) {
+            if (!p.location || !p.displayName) continue;
+            const loc = p.location.toJSON();
+            // Restrict to Phnom Penh metropolitan bounds
+            if (
+              loc.lat < 11.42 ||
+              loc.lat > 11.72 ||
+              loc.lng < 104.78 ||
+              loc.lng > 105.02
+            ) {
+              continue;
+            }
+            const placeId = p.id ?? `${loc.lat.toFixed(5)}-${loc.lng.toFixed(5)}`;
+            mapped.push({
+              id: `gp-${placeId}`,
+              googlePlaceId: p.id ?? undefined,
+              name: p.displayName,
+              tagline: isEv
+                ? 'EV charging location discovered via Google Places.'
+                : 'Parking location discovered via Google Places.',
+              address: p.formattedAddress ?? 'Phnom Penh, Cambodia',
+              district: 'Phnom Penh',
+              facilityType: isEv ? 'ev_station' : 'public',
+              openHours: 'See Google Maps hours',
+              pricePerHourKhr: null,
+              pricePerHour: 2000,
+              pricing: {
+                verificationStatus: 'unavailable',
+                sourceLabel: 'Google Places (tariff not provided by API)',
+                carHourly: { khr: null, unit: 'hour' },
+              },
+              availability: {
+                status: 'unknown',
+                source: 'unverified',
+                availableSpaces: null,
+                note: 'Live availability not provided by Google Places',
+              },
+              evCharging: isEv
+                ? {
+                    provider: p.displayName,
+                    connectorTypes: ['Connector details unverified'],
+                    maxPowerKw: null,
+                    speedTier: 'unknown',
+                    pricePerKwhKhr: null,
+                    priceStatus: 'unavailable',
+                    operatingHours: 'See Google Maps hours',
+                    portCount: null,
+                    liveStatus: 'unknown',
+                  }
+                : undefined,
+              categories: isEv ? ['ev', 'car'] : ['car', 'motorcycle'],
+              images: ['/src/assets/images/central_plaza_garage_1795607312182.jpg'],
+              description:
+                'Location retrieved live from Google Places in Phnom Penh. Pricing and live space counts are shown as unavailable unless confirmed by the operator.',
+              facilities: ['Google Places Listed'],
+              distanceKm: null,
+              rating: typeof p.rating === 'number' ? p.rating : null,
+              reviewCount:
+                typeof p.userRatingCount === 'number' ? p.userRatingCount : null,
+              dataSource: 'google_places',
+              coordinates: { x: 50, y: 50 },
+              position: loc,
+              floors: buildStandardDemoFloors(isEv),
+            });
+          }
+        };
+
+        addMapped(parkingRes.places, false);
+        addMapped(evRes.places, true);
+
+        onPlacesDiscovered(
+          mapped,
+          mapped.length > 0
+            ? `Discovered ${mapped.length} Google Places listings in Phnom Penh.`
+            : 'No additional Google Places listings found in this area.'
+        );
+      } catch (err) {
+        if (cancelled) return;
+        if (isQuotaError(err)) {
+          window.dispatchEvent(new CustomEvent('gmp-quota-exceeded'));
+        }
+        onPlacesDiscovered(
+          [],
+          'Unable to query Google Places right now. Showing verified Phnom Penh dataset.'
+        );
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [placesDiscoverySeq, placesLib, map, onPlacesDiscovered]);
+
+  // Routes API driving directions
   useEffect(() => {
     if (!routeTrigger || !routesLib || !map) return;
 
@@ -343,7 +682,7 @@ const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
         };
 
         if (typeof RouteCtor?.computeRoutes !== 'function') {
-          onRouteComputed(null, 'Routes service is still loading. Try again in a moment.');
+          onRouteComputed(null, 'Routes service is loading. Try again in a moment.');
           return;
         }
 
@@ -357,7 +696,7 @@ const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
         if (cancelled) return;
         const primaryRoute = response?.routes?.[0];
         if (!primaryRoute) {
-          onRouteComputed(null, 'No driving route found to this parking facility.');
+          onRouteComputed(null, 'No driving route found to this location.');
           return;
         }
 
@@ -365,7 +704,7 @@ const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
           const polylines = primaryRoute.createPolylines({
             polylineOptions: {
               strokeColor: '#141517',
-              strokeOpacity: 0.92,
+              strokeOpacity: 0.9,
               strokeWeight: 5,
             },
           });
@@ -377,7 +716,7 @@ const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
           const poly = new google.maps.Polyline({
             path: primaryRoute.path,
             strokeColor: '#141517',
-            strokeOpacity: 0.92,
+            strokeOpacity: 0.9,
             strokeWeight: 5,
             map,
           });
@@ -432,10 +771,10 @@ const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
       <div className="w-full h-full flex flex-col items-center justify-center bg-[#F2F4EF] p-6 text-center gap-2.5">
         <AlertCircle className="w-8 h-8 text-[#B45309]" />
         <p className="text-[15px] font-bold text-[#141517]">
-          Unable to load Google Maps
+          Unable to load Google Maps tiles
         </p>
-        <p className="text-[13px] text-[#6B7280] max-w-sm">
-          Please check your network connection or Google Maps API key configuration.
+        <p className="text-[13px] text-[#6B7280] max-w-md">
+          Check your Google Maps API key or network connection. You can still browse all Phnom Penh parking rates and EV stations in the left panel.
         </p>
       </div>
     );
@@ -447,7 +786,7 @@ const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#F2F4EF]/90">
           <div className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-white shadow-sm text-[13px] font-semibold text-[#141517]">
             <Loader2 className="w-4 h-4 animate-spin text-[#5A760E]" />
-            <span>Loading Google Maps…</span>
+            <span>Loading Phnom Penh Google Map…</span>
           </div>
         </div>
       )}
@@ -455,8 +794,8 @@ const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
       <GoogleMap
         mapId="DEMO_MAP_ID"
         internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
-        defaultCenter={activeLot?.position ?? DEFAULT_CENTER}
-        defaultZoom={15}
+        defaultCenter={PHNOM_PENH_CENTER}
+        defaultZoom={13}
         mapTypeId={mapType}
         gestureHandling="greedy"
         streetViewControl={false}
@@ -464,20 +803,18 @@ const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
         fullscreenControl={false}
         style={{ width: '100%', height: '100%' }}
       >
-        {/* User Geolocation Marker (only shown after user clicks My Location) */}
         {userPosition && (
           <AdvancedMarker
             position={userPosition}
             zIndex={950}
             title="Your current location"
           >
-            <div className="w-9 h-9 rounded-full bg-[#141517]/15 flex items-center justify-center">
-              <div className="w-4 h-4 rounded-full bg-[#2563EB] border-[3px] border-white shadow-md" />
+            <div className="w-9 h-9 rounded-full bg-blue-600/15 flex items-center justify-center">
+              <div className="w-4 h-4 rounded-full bg-blue-600 border-[3px] border-white shadow-md" />
             </div>
           </AdvancedMarker>
         )}
 
-        {/* Searched Google Maps Place Marker */}
         {searchedPlace && (
           <AdvancedMarker
             position={searchedPlace.position}
@@ -491,10 +828,8 @@ const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
           </AdvancedMarker>
         )}
 
-        {/* PrestigePark Facility Markers */}
         {sortedLots.map((lot, idx) => {
-          const isSelected = lot.id === activeLot.id;
-          const openCount = countAvailableSpaces(lot, activeBookedBayKeys);
+          const isSelected = lot.id === selectedLot?.id;
           return (
             <ParkingMarkerItem
               key={lot.id}
@@ -502,17 +837,18 @@ const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
               isSelected={isSelected}
               isHovered={hoveredLotId === lot.id}
               baseZIndex={idx + 1}
-              openCount={openCount}
+              userPosition={userPosition}
               showInfoWindow={infoWindowLotId === lot.id}
               onHoverChange={(hovered) =>
                 setHoveredLotId(hovered ? lot.id : null)
               }
               onSelect={() => {
-                onSelectLot(lot.id);
+                onSelectLotFromMarker(lot.id);
                 setInfoWindowLotId(lot.id);
               }}
               onCloseInfoWindow={() => setInfoWindowLotId(null)}
-              onSelectSpace={() => onOpenSelectSpace(lot.id)}
+              onDirections={() => onRequestDirections(lot)}
+              onViewDetails={() => onOpenDetails(lot.id)}
             />
           );
         })}
@@ -522,24 +858,35 @@ const GoogleMapCanvas: React.FC<GoogleMapCanvasProps> = ({
 };
 
 export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
-  lots,
   allLots,
+  filteredLots,
   selectedLotId,
   searchQuery,
+  selectedDistrict,
+  vehicleType,
+  priceBracket,
+  facilityType,
+  availabilityFilter,
+  evFilter,
+  nearUserOnly,
+  userPosition,
   onSearchChange,
-  activeCategory,
-  onCategoryChange,
-  favoriteIds,
-  onToggleFavorite,
-  activeBookedBayKeys,
+  onDistrictChange,
+  onVehicleTypeChange,
+  onPriceBracketChange,
+  onFacilityTypeChange,
+  onAvailabilityFilterChange,
+  onEvFilterChange,
+  onNearUserOnlyChange,
+  onResetFilters,
+  onUserPositionChange,
   onSelectLot,
   onOpenDetails,
-  onOpenSelectSpace,
+  onMergeGooglePlacesLots,
+  externalRouteRequest,
 }) => {
   const [mapType, setMapType] = useState<'roadmap' | 'hybrid'>('roadmap');
-  const [userPosition, setUserPosition] = useState<google.maps.LatLngLiteral | null>(
-    null
-  );
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [locating, setLocating] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [searchedPlace, setSearchedPlace] = useState<SearchedPlaceResult | null>(
@@ -549,6 +896,11 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
     query: string;
     seq: number;
   } | null>(null);
+  const [placesDiscoverySeq, setPlacesDiscoverySeq] = useState(0);
+  const [focusLotTrigger, setFocusLotTrigger] = useState<{
+    lot: ParkingLot;
+    seq: number;
+  } | null>(null);
   const [routeTrigger, setRouteTrigger] = useState<{
     lot: ParkingLot;
     origin: google.maps.LatLngLiteral;
@@ -556,25 +908,41 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
   } | null>(null);
   const [routeSummary, setRouteSummary] = useState<RouteSummary | null>(null);
   const [recenterSeq, setRecenterSeq] = useState(0);
-  const [centerOnUserSeq, setCenterOnUserSeq] = useState(0);
 
-  const activeLot =
-    lots.find((l) => l.id === selectedLotId) ?? lots[0] ?? allLots[0];
-  const activeAvailable = countAvailableSpaces(activeLot, activeBookedBayKeys);
+  const listCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  const nearestToUser = useMemo(() => {
-    if (!userPosition) return null;
-    return findNearestParkingLot(lots.length > 0 ? lots : allLots, userPosition);
-  }, [userPosition, lots, allLots]);
+  const selectedLot =
+    filteredLots.find((l) => l.id === selectedLotId) ??
+    allLots.find((l) => l.id === selectedLotId) ??
+    null;
 
-  const activeDistanceKm = useMemo(() => {
-    if (userPosition) {
-      return calculateDistanceKm(userPosition, activeLot.position);
-    }
-    return activeLot.distanceKm;
-  }, [userPosition, activeLot]);
+  const showEvSubFilters =
+    vehicleType === 'ev' || facilityType === 'ev_station' || evFilter !== 'all';
 
-  const handleCenterOnMyLocation = () => {
+  const activeFilterCount =
+    (selectedDistrict !== 'All Phnom Penh' ? 1 : 0) +
+    (vehicleType !== 'all' ? 1 : 0) +
+    (priceBracket !== 'all' ? 1 : 0) +
+    (facilityType !== 'all' ? 1 : 0) +
+    (availabilityFilter !== 'all' ? 1 : 0) +
+    (evFilter !== 'all' ? 1 : 0) +
+    (nearUserOnly ? 1 : 0);
+
+  useEffect(() => {
+    if (!externalRouteRequest) return;
+    setStatusMessage(null);
+    setFocusLotTrigger((prev) => ({
+      lot: externalRouteRequest.lot,
+      seq: (prev?.seq ?? 0) + 1,
+    }));
+    setRouteTrigger((prev) => ({
+      lot: externalRouteRequest.lot,
+      origin: userPosition ?? PHNOM_PENH_CENTER,
+      seq: (prev?.seq ?? 0) + 1,
+    }));
+  }, [externalRouteRequest, userPosition]);
+
+  const handleLocateMe = () => {
     if (!navigator.geolocation) {
       setStatusMessage('Geolocation is not supported in this browser.');
       return;
@@ -587,21 +955,15 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
         };
-        setUserPosition(coords);
+        onUserPositionChange(coords);
         setLocating(false);
-        setCenterOnUserSeq((s) => s + 1);
+        setRecenterSeq((s) => s + 1);
       },
-      (err) => {
+      () => {
         setLocating(false);
-        if (err.code === err.PERMISSION_DENIED) {
-          setStatusMessage(
-            'Location access was denied. Enable browser location permissions to center on your position.'
-          );
-        } else {
-          setStatusMessage(
-            'Unable to determine your current location right now. Showing Downtown District garages.'
-          );
-        }
+        setStatusMessage(
+          'Location permission declined. Map remains centered on Phnom Penh.'
+        );
       },
       { enableHighAccuracy: true, timeout: 8000 }
     );
@@ -622,14 +984,36 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
     }));
   };
 
-  const handleRequestDirections = () => {
-    setStatusMessage(null);
-    setRouteTrigger((prev) => ({
-      lot: activeLot,
-      origin: userPosition ?? DEFAULT_CENTER,
+  const handleSelectFromList = (lot: ParkingLot) => {
+    onSelectLot(lot.id);
+    setFocusLotTrigger((prev) => ({
+      lot,
       seq: (prev?.seq ?? 0) + 1,
     }));
   };
+
+  const handleSelectFromMarker = useCallback(
+    (lotId: string) => {
+      onSelectLot(lotId);
+      const cardEl = listCardRefs.current[lotId];
+      if (cardEl) {
+        cardEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    },
+    [onSelectLot]
+  );
+
+  const handleRequestDirections = useCallback(
+    (lot: ParkingLot) => {
+      setStatusMessage(null);
+      setRouteTrigger((prev) => ({
+        lot,
+        origin: userPosition ?? PHNOM_PENH_CENTER,
+        seq: (prev?.seq ?? 0) + 1,
+      }));
+    },
+    [userPosition]
+  );
 
   const handleSearchedPlaceResult = useCallback(
     (place: SearchedPlaceResult | null, msg: string | null) => {
@@ -647,349 +1031,590 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
     []
   );
 
+  const handlePlacesDiscovered = useCallback(
+    (discovered: ParkingLot[], msg: string) => {
+      if (discovered.length > 0) {
+        onMergeGooglePlacesLots(discovered);
+      }
+      setStatusMessage(msg);
+    },
+    [onMergeGooglePlacesLots]
+  );
+
   return (
     <section
-      aria-label="Interactive Google Maps Parking Explorer"
-      className="max-w-[1360px] mx-auto w-full px-0 sm:px-5 lg:px-6 xl:px-8 pb-24 md:pb-8"
+      aria-label="Phnom Penh Smart Parking & EV Map Discovery"
+      className="max-w-[1440px] mx-auto w-full px-3 sm:px-5 lg:px-8 pb-24 lg:pb-4"
     >
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-        {/* Left/Main Live Google Maps Panel */}
-        <div className="lg:col-span-8 bg-white sm:rounded-[32px] shadow-[0_14px_40px_rgba(20,21,23,0.06)] border border-black/[0.04] overflow-hidden flex flex-col">
-          {/* Map Top Search & Category Filter */}
-          <div className="p-4 sm:p-5 border-b border-[#F0F1F3] flex flex-col gap-3">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
-              <form onSubmit={handleSearchSubmit} className="relative flex-1 flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Search
-                    className="w-4 h-4 text-[#767B84] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
-                    aria-hidden="true"
-                  />
-                  <label htmlFor="map-search-input" className="sr-only">
-                    Search Google Maps location or garage
-                  </label>
-                  <input
-                    id="map-search-input"
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => {
-                      onSearchChange(e.target.value);
-                      if (!e.target.value.trim()) {
-                        setSearchedPlace(null);
-                        setStatusMessage(null);
-                      }
-                    }}
-                    placeholder="Search street, landmark, or garage"
-                    className="w-full h-11 pl-10 pr-9 rounded-full bg-[#F4F5F6] text-[14px] text-[#141517] placeholder:text-[#8E939B] focus:outline-none focus:ring-2 focus:ring-[#C5EC45] focus:bg-white transition-all"
-                  />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onSearchChange('');
-                        setSearchedPlace(null);
-                        setStatusMessage(null);
-                      }}
-                      aria-label="Clear map search"
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center text-[#767B84] hover:text-[#141517]"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-                <button
-                  type="submit"
-                  className="h-11 px-4 rounded-full bg-[#141517] hover:bg-[#2A2D32] text-white text-[13px] font-semibold whitespace-nowrap shrink-0 transition-colors"
-                >
-                  Search Map
-                </button>
-              </form>
+      {/* Split-Screen Interface: Left Search/Filter/List Panel | Right Interactive Google Map */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch lg:h-[calc(100vh-96px)] lg:min-h-[620px]">
+        {/* LEFT PANEL: Search, Filters & Synchronized Parking List */}
+        <div className="lg:col-span-5 bg-white rounded-[28px] shadow-[0_14px_40px_rgba(20,21,23,0.06)] border border-black/[0.04] flex flex-col min-h-[520px] lg:min-h-0 overflow-hidden">
+          {/* Search & Quick Filter Header */}
+          <div className="p-4 border-b border-[#F0F1F3] space-y-3 shrink-0">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <h1 className="text-[18px] font-extrabold tracking-[-0.02em] text-[#141517]">
+                  Phnom Penh Parking & EV
+                </h1>
+                <p className="text-[12px] text-[#767B84]">
+                  {filteredLots.length} verified locations across Phnom Penh
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAdvancedFilters((prev) => !prev)}
+                className={`h-9 px-3.5 rounded-full text-[12.5px] font-semibold inline-flex items-center gap-1.5 transition-colors ${
+                  showAdvancedFilters || activeFilterCount > 0
+                    ? 'bg-[#C5EC45] text-[#141517]'
+                    : 'bg-[#F4F5F6] text-[#525760] hover:text-[#141517]'
+                }`}
+              >
+                <Filter className="w-3.5 h-3.5" />
+                <span>Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}</span>
+              </button>
+            </div>
 
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-                {MAP_CATEGORIES.map((cat) => {
-                  const isActive = activeCategory === cat.id;
+            {/* Search Bar */}
+            <form onSubmit={handleSearchSubmit} className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search
+                  className="w-4 h-4 text-[#767B84] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                  aria-hidden="true"
+                />
+                <label htmlFor="map-search-input" className="sr-only">
+                  Search neighborhood, landmark, street, or parking
+                </label>
+                <input
+                  id="map-search-input"
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    onSearchChange(e.target.value);
+                    if (!e.target.value.trim()) {
+                      setSearchedPlace(null);
+                      setStatusMessage(null);
+                    }
+                  }}
+                  placeholder="Search BKK1, Toul Kork, AEON, Street 51..."
+                  className="w-full h-10 pl-9 pr-8 rounded-full bg-[#F4F5F6] text-[13.5px] text-[#141517] placeholder:text-[#8E939B] focus:outline-none focus:ring-2 focus:ring-[#C5EC45] focus:bg-white transition-all"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSearchChange('');
+                      setSearchedPlace(null);
+                      setStatusMessage(null);
+                    }}
+                    aria-label="Clear search"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center text-[#767B84] hover:text-[#141517]"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+              <button
+                type="submit"
+                className="h-10 px-4 rounded-full bg-[#141517] hover:bg-[#2A2D32] text-white text-[12.5px] font-semibold whitespace-nowrap shrink-0 transition-colors"
+              >
+                Locate
+              </button>
+            </form>
+
+            {/* Quick Neighborhood Selector */}
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+              {PHNOM_PENH_DISTRICTS.map((district) => {
+                const active = selectedDistrict === district;
+                return (
+                  <button
+                    key={district}
+                    type="button"
+                    onClick={() => onDistrictChange(district)}
+                    className={`px-3 py-1.5 rounded-full text-[12px] whitespace-nowrap shrink-0 transition-colors ${
+                      active
+                        ? 'bg-[#141517] text-white font-semibold'
+                        : 'bg-[#F4F5F6] text-[#525760] hover:text-[#141517] font-medium'
+                    }`}
+                  >
+                    {district}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Quick Vehicle Type Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+              {VEHICLE_FILTER_OPTIONS.map((opt) => {
+                const active = vehicleType === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => onVehicleTypeChange(opt.id)}
+                    className={`px-3 py-1.5 rounded-full text-[12px] whitespace-nowrap shrink-0 transition-all ${
+                      active
+                        ? 'bg-[#C5EC45] text-[#141517] font-semibold'
+                        : 'bg-[#F4F5F6] text-[#525760] hover:text-[#141517] font-medium'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Dedicated EV Sub-Filter Bar */}
+            {showEvSubFilters && (
+              <div className="bg-cyan-50/70 border border-cyan-200 rounded-2xl p-2.5 flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] font-bold text-cyan-900 inline-flex items-center gap-1 mr-1">
+                  <BatteryCharging className="w-3.5 h-3.5" />
+                  EV Filter:
+                </span>
+                {EV_FILTER_OPTIONS.map((opt) => {
+                  const active = evFilter === opt.id;
                   return (
                     <button
-                      key={cat.id}
+                      key={opt.id}
                       type="button"
-                      onClick={() => onCategoryChange(cat.id)}
-                      className={`px-3.5 py-2 rounded-full text-[13px] font-medium whitespace-nowrap shrink-0 transition-all min-h-[40px] ${
-                        isActive
-                          ? 'bg-[#C5EC45] text-[#141517] font-semibold'
-                          : 'bg-[#F4F5F6] text-[#6B7280] hover:text-[#141517]'
+                      onClick={() => onEvFilterChange(opt.id)}
+                      className={`px-2.5 py-1 rounded-full text-[11.5px] font-medium transition-colors ${
+                        active
+                          ? 'bg-cyan-600 text-white font-semibold'
+                          : 'bg-white text-cyan-900 hover:bg-cyan-100'
                       }`}
                     >
-                      {cat.label}
+                      {opt.label}
                     </button>
                   );
                 })}
               </div>
-            </div>
+            )}
+
+            {/* Collapsible Price, Type, Availability & Near Me Filter Grid */}
+            {showAdvancedFilters && (
+              <div className="bg-[#F6F7F8] rounded-2xl p-3 space-y-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div>
+                    <label
+                      htmlFor="filter-price-bracket"
+                      className="block text-[11px] font-semibold text-[#525760] mb-1"
+                    >
+                      Parking Price
+                    </label>
+                    <select
+                      id="filter-price-bracket"
+                      value={priceBracket}
+                      onChange={(e) =>
+                        onPriceBracketChange(e.target.value as PriceBracketFilter)
+                      }
+                      className="w-full h-9 px-2.5 rounded-xl bg-white text-[12px] text-[#141517] border border-black/10 focus:outline-none focus:ring-2 focus:ring-[#C5EC45]"
+                    >
+                      {PRICE_FILTER_OPTIONS.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="filter-facility-type"
+                      className="block text-[11px] font-semibold text-[#525760] mb-1"
+                    >
+                      Parking Type
+                    </label>
+                    <select
+                      id="filter-facility-type"
+                      value={facilityType}
+                      onChange={(e) =>
+                        onFacilityTypeChange(e.target.value as FacilityType | 'all')
+                      }
+                      className="w-full h-9 px-2.5 rounded-xl bg-white text-[12px] text-[#141517] border border-black/10 focus:outline-none focus:ring-2 focus:ring-[#C5EC45]"
+                    >
+                      {FACILITY_TYPE_FILTER_OPTIONS.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="filter-availability"
+                      className="block text-[11px] font-semibold text-[#525760] mb-1"
+                    >
+                      Availability
+                    </label>
+                    <select
+                      id="filter-availability"
+                      value={availabilityFilter}
+                      onChange={(e) =>
+                        onAvailabilityFilterChange(
+                          e.target.value as AvailabilityStatus | 'all'
+                        )
+                      }
+                      className="w-full h-9 px-2.5 rounded-xl bg-white text-[12px] text-[#141517] border border-black/10 focus:outline-none focus:ring-2 focus:ring-[#C5EC45]"
+                    >
+                      {AVAILABILITY_FILTER_OPTIONS.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!userPosition) {
+                        handleLocateMe();
+                        onNearUserOnlyChange(true);
+                      } else {
+                        onNearUserOnlyChange(!nearUserOnly);
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-full text-[11.5px] font-semibold inline-flex items-center gap-1.5 transition-colors ${
+                      nearUserOnly && userPosition
+                        ? 'bg-[#141517] text-white'
+                        : 'bg-white text-[#525760] border border-black/10 hover:text-[#141517]'
+                    }`}
+                  >
+                    <Navigation className="w-3 h-3" />
+                    Near My Location (≤ 3.5 km)
+                  </button>
+
+                  {activeFilterCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={onResetFilters}
+                      className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-[#525760] hover:text-[#141517]"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      Reset All
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
 
             {statusMessage && (
-              <p role="status" className="text-[12.5px] text-[#525760] px-1">
+              <p role="status" className="text-[12px] text-[#525760] px-1">
                 {statusMessage}
               </p>
             )}
-
-            {userPosition && nearestToUser && !statusMessage && (
-              <div
-                role="status"
-                className="flex items-center justify-between gap-2 text-[12.5px] text-[#525760] px-1 flex-wrap"
-              >
-                <span>
-                  Centered on your location · Closest garage:{' '}
-                  <strong className="font-semibold text-[#141517]">
-                    {nearestToUser.lot.name}
-                  </strong>{' '}
-                  <span className="tabular-nums">
-                    ({nearestToUser.distanceKm.toFixed(1)} km away)
-                  </span>
-                </span>
-                {nearestToUser.lot.id !== activeLot.id && (
-                  <button
-                    type="button"
-                    onClick={() => onSelectLot(nearestToUser.lot.id)}
-                    className="text-[12px] font-semibold text-[#141517] underline hover:text-[#4D6A0A] whitespace-nowrap"
-                  >
-                    Focus Closest
-                  </button>
-                )}
-              </div>
-            )}
           </div>
 
-          {/* Live Google Maps Container (Explicit Height adapted to laptop/desktop screens) */}
-          <div className="relative h-[400px] sm:h-[440px] md:h-[clamp(390px,calc(100vh-270px),540px)] w-full bg-[#EEF2EB] overflow-hidden">
+          {/* Synchronized Parking & EV Results List */}
+          <div className="flex-1 min-h-0 overflow-y-auto clean-scroll p-3.5 space-y-2.5 bg-[#FAFAFA]">
+            {filteredLots.length === 0 ? (
+              <div className="bg-white rounded-[22px] p-7 text-center space-y-3 border border-black/[0.04]">
+                <Search className="w-6 h-6 text-[#767B84] mx-auto" />
+                <div>
+                  <p className="text-[14.5px] font-bold text-[#141517]">
+                    No matching Phnom Penh facilities
+                  </p>
+                  <p className="text-[12.5px] text-[#767B84] mt-1">
+                    Try clearing one of the neighborhood, price, or vehicle filters.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={onResetFilters}
+                  className="px-4 py-2 rounded-full bg-[#C5EC45] hover:bg-[#B6DE35] text-[#141517] text-[12.5px] font-semibold"
+                >
+                  Reset All Filters
+                </button>
+              </div>
+            ) : (
+              filteredLots.map((lot) => {
+                const isSelected = lot.id === selectedLot?.id;
+                const priceDisplay = getCompactPriceDisplay(lot);
+                const distanceKm = userPosition
+                  ? calculateDistanceKm(userPosition, lot.position)
+                  : null;
+                const variant = getMarkerColorVariant(lot);
+
+                return (
+                  <div
+                    key={lot.id}
+                    ref={(el) => {
+                      listCardRefs.current[lot.id] = el;
+                    }}
+                    onClick={() => handleSelectFromList(lot)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleSelectFromList(lot);
+                      }
+                    }}
+                    className={`bg-white rounded-[20px] p-3.5 transition-all cursor-pointer border ${
+                      isSelected
+                        ? 'border-[#C5EC45] ring-2 ring-[#C5EC45] shadow-[0_8px_24px_rgba(20,21,23,0.08)]'
+                        : 'border-black/[0.05] hover:border-black/15 shadow-[0_2px_10px_rgba(20,21,23,0.03)]'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2.5">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span
+                            className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                              MARKER_LEGEND.find((m) => m.variant === variant)
+                                ?.dotClass ?? 'bg-blue-600'
+                            }`}
+                            aria-hidden="true"
+                          />
+                          <span className="text-[11px] font-semibold text-[#525760]">
+                            {FACILITY_TYPE_LABELS[lot.facilityType]}
+                          </span>
+                          <span className="text-[11px] text-[#9CA3AF]">·</span>
+                          <span className="text-[11px] font-medium text-[#767B84]">
+                            {lot.district}
+                          </span>
+                        </div>
+                        <h3 className="text-[14.5px] font-bold text-[#141517] mt-1 leading-snug">
+                          {lot.name}
+                        </h3>
+                        <p className="text-[12px] text-[#767B84] truncate mt-0.5">
+                          {lot.address}
+                        </p>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <p
+                          className={`text-[13.5px] font-extrabold tabular-nums ${
+                            priceDisplay.status === 'unavailable'
+                              ? 'text-[#767B84] font-semibold text-[12px]'
+                              : priceDisplay.primaryText === 'Free parking'
+                                ? 'text-emerald-700'
+                                : 'text-[#141517]'
+                          }`}
+                        >
+                          {priceDisplay.primaryText}
+                        </p>
+                        {priceDisplay.secondaryUsd && (
+                          <p className="text-[11px] text-[#767B84] tabular-nums">
+                            {priceDisplay.secondaryUsd}
+                          </p>
+                        )}
+                        <span
+                          className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            priceDisplay.status === 'confirmed'
+                              ? 'bg-emerald-50 text-emerald-700'
+                              : priceDisplay.status === 'estimated'
+                                ? 'bg-amber-50 text-amber-700'
+                                : 'bg-gray-100 text-gray-600'
+                          }`}
+                        >
+                          {priceDisplay.status === 'confirmed'
+                            ? 'Confirmed'
+                            : priceDisplay.status === 'estimated'
+                              ? 'Estimated'
+                              : 'Unverified'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* EV / Moto / Availability Quick Row */}
+                    <div className="mt-2.5 pt-2.5 border-t border-[#F4F5F6] flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 text-[11.5px] text-[#525760] flex-wrap">
+                        {lot.evCharging ? (
+                          <span className="inline-flex items-center gap-1 text-cyan-800 font-semibold bg-cyan-50 px-2 py-0.5 rounded-full">
+                            <Zap className="w-3 h-3" />
+                            {lot.evCharging.maxPowerKw
+                              ? `${lot.evCharging.maxPowerKw} kW`
+                              : lot.evCharging.speedTier === 'fast'
+                                ? 'Fast DC'
+                                : 'AC'}{' '}
+                            · {lot.evCharging.connectorTypes.join('/')}
+                          </span>
+                        ) : (
+                          <>
+                            {lot.pricing.motorcycle?.khr !== undefined &&
+                              lot.pricing.motorcycle.khr !== null && (
+                                <span className="inline-flex items-center gap-1 tabular-nums">
+                                  <Bike className="w-3.5 h-3.5" />
+                                  Moto: {lot.pricing.motorcycle.khr.toLocaleString()} KHR
+                                </span>
+                              )}
+                            {lot.categories.includes('car') && (
+                              <span className="inline-flex items-center gap-1">
+                                <Car className="w-3.5 h-3.5" />
+                                Car
+                              </span>
+                            )}
+                          </>
+                        )}
+                        {distanceKm !== null && (
+                          <span className="font-semibold text-[#141517] tabular-nums">
+                            · {distanceKm.toFixed(1)} km
+                          </span>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectLot(lot.id);
+                          onOpenDetails(lot.id);
+                        }}
+                        className="px-3 py-1 rounded-full bg-[#C5EC45] hover:bg-[#B6DE35] text-[#141517] text-[11.5px] font-bold transition-colors"
+                      >
+                        View Details
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* RIGHT PANEL: Interactive Google Map Centered on Phnom Penh */}
+        <div className="lg:col-span-7 bg-white rounded-[28px] shadow-[0_14px_40px_rgba(20,21,23,0.06)] border border-black/[0.04] overflow-hidden flex flex-col min-h-[460px] lg:min-h-0">
+          <div className="relative flex-1 w-full bg-[#EEF2EB]">
             {MAPS_API_KEY ? (
               <APIProvider
                 apiKey={MAPS_API_KEY}
                 libraries={['marker', 'places', 'routes']}
                 language="en"
-                region="US"
+                region="KH"
               >
                 <GoogleMapCanvas
-                  lots={lots}
-                  activeLot={activeLot}
-                  activeBookedBayKeys={activeBookedBayKeys}
+                  lots={filteredLots}
+                  selectedLot={selectedLot}
+                  focusLotTrigger={focusLotTrigger}
                   mapType={mapType}
                   userPosition={userPosition}
                   searchedPlace={searchedPlace}
                   routeTrigger={routeTrigger}
                   placeSearchTrigger={placeSearchTrigger}
+                  placesDiscoverySeq={placesDiscoverySeq}
                   recenterSeq={recenterSeq}
-                  centerOnUserSeq={centerOnUserSeq}
-                  onSelectLot={onSelectLot}
-                  onOpenSelectSpace={onOpenSelectSpace}
+                  onSelectLotFromMarker={handleSelectFromMarker}
+                  onOpenDetails={onOpenDetails}
+                  onRequestDirections={handleRequestDirections}
                   onSearchedPlace={handleSearchedPlaceResult}
                   onRouteComputed={handleRouteComputed}
+                  onPlacesDiscovered={handlePlacesDiscovered}
                 />
               </APIProvider>
             ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center gap-2 bg-[#F2F4EF]">
-                <MapPin className="w-8 h-8 text-[#525760]" />
-                <p className="text-[15px] font-bold text-[#141517]">
-                  Google Maps API key not configured
-                </p>
-                <p className="text-[13px] text-[#6B7280] max-w-sm">
-                  Set VITE_GOOGLE_MAPS_API_KEY in your environment to display live Google Maps tiles.
-                </p>
+              <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center gap-3 bg-[#F2F4EF]">
+                <MapPin className="w-9 h-9 text-[#525760]" />
+                <div className="max-w-md space-y-1.5">
+                  <p className="text-[16px] font-bold text-[#141517]">
+                    Google Maps API Key Required for Live Map Tiles
+                  </p>
+                  <p className="text-[13px] text-[#6B7280]">
+                    Set <code className="px-1.5 py-0.5 rounded bg-white font-mono text-[12px]">VITE_GOOGLE_MAPS_API_KEY</code> in your environment to render interactive Google Maps centered on Phnom Penh (11.5625°N, 104.9160°E).
+                  </p>
+                </div>
+                {selectedLot && (
+                  <div className="mt-2 bg-white rounded-2xl p-4 shadow-sm border border-black/5 max-w-sm w-full text-left space-y-1.5">
+                    <p className="text-[11px] font-semibold text-[#767B84] uppercase">
+                      Selected Location Coordinates
+                    </p>
+                    <p className="text-[14px] font-bold text-[#141517]">{selectedLot.name}</p>
+                    <p className="text-[12px] text-[#525760] font-mono">
+                      {selectedLot.position.lat.toFixed(5)}°N, {selectedLot.position.lng.toFixed(5)}°E
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => onOpenDetails(selectedLot.id)}
+                      className="mt-2 w-full h-9 rounded-full bg-[#C5EC45] text-[#141517] text-[12.5px] font-bold"
+                    >
+                      View Details
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Floating Map Utility Controls (Center on my location, Map Type, Recenter) */}
-            <div className="absolute top-3.5 left-3.5 right-3.5 z-10 flex items-center gap-2 flex-wrap pointer-events-none">
-              <button
-                type="button"
-                onClick={handleCenterOnMyLocation}
-                disabled={locating}
-                aria-label="Center on my location"
-                className={`pointer-events-auto h-10 px-3.5 rounded-full text-[12.5px] font-semibold shadow-md flex items-center gap-1.5 transition-colors whitespace-nowrap disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141517] ${
-                  userPosition
-                    ? 'bg-[#C5EC45] hover:bg-[#B6DE35] text-[#141517]'
-                    : 'bg-white/95 hover:bg-white text-[#141517]'
-                }`}
-              >
-                {locating ? (
-                  <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-                ) : (
-                  <Crosshair className="w-4 h-4 shrink-0" />
-                )}
-                <span>{locating ? 'Locating…' : 'Center on my location'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setMapType((prev) => (prev === 'roadmap' ? 'hybrid' : 'roadmap'))
-                }
-                aria-label={
-                  mapType === 'roadmap'
-                    ? 'Switch to Satellite view'
-                    : 'Switch to Road map view'
-                }
-                className="pointer-events-auto h-10 px-3.5 rounded-full bg-white/95 hover:bg-white text-[#141517] text-[12.5px] font-semibold shadow-md flex items-center gap-1.5 transition-colors whitespace-nowrap"
-              >
-                <Layers className="w-4 h-4 shrink-0" />
-                <span>{mapType === 'roadmap' ? 'Satellite' : 'Map'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  onSelectLot('prestige-parking');
-                  setSearchedPlace(null);
-                  setStatusMessage(null);
-                  setRecenterSeq((s) => s + 1);
-                }}
-                aria-label="Recenter map on downtown garages"
-                className="pointer-events-auto h-10 px-3.5 rounded-full bg-white/95 hover:bg-white text-[#141517] text-[12.5px] font-semibold shadow-md flex items-center gap-1.5 transition-colors whitespace-nowrap"
-              >
-                <Navigation className="w-4 h-4 shrink-0" />
-                <span>Recenter</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Quick Horizontal Garage Switcher for Accessible Selection */}
-          <div className="px-4 py-3 border-t border-[#F0F1F3] bg-[#FAFAFA] flex items-center gap-2 overflow-x-auto no-scrollbar">
-            {lots.map((lot) => {
-              const isSelected = lot.id === activeLot.id;
-              const lotDistKm = userPosition
-                ? calculateDistanceKm(userPosition, lot.position)
-                : null;
-              return (
+            {/* Top-Left Map Utility Controls */}
+            <div className="absolute top-3.5 left-3.5 right-3.5 z-10 flex items-center justify-between gap-2 pointer-events-none">
+              <div className="flex items-center gap-2 flex-wrap pointer-events-auto">
                 <button
-                  key={lot.id}
                   type="button"
-                  onClick={() => onSelectLot(lot.id)}
-                  className={`px-3.5 py-2 rounded-full text-[12.5px] whitespace-nowrap shrink-0 transition-all tabular-nums ${
-                    isSelected
-                      ? 'bg-[#C5EC45] text-[#141517] font-bold'
-                      : 'bg-white text-[#525760] hover:text-[#141517] border border-black/[0.06] font-medium'
-                  }`}
+                  onClick={() =>
+                    setMapType((prev) => (prev === 'roadmap' ? 'hybrid' : 'roadmap'))
+                  }
+                  className="h-9 px-3 rounded-full bg-white/95 hover:bg-white text-[#141517] text-[12px] font-semibold shadow-md inline-flex items-center gap-1.5 transition-colors"
                 >
-                  {lot.name} · ${lot.pricePerHour}/hr
-                  {lotDistKm !== null ? ` · ${lotDistKm.toFixed(1)} km` : ''}
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>{mapType === 'roadmap' ? 'Satellite' : 'Map'}</span>
                 </button>
-              );
-            })}
-          </div>
-        </div>
 
-        {/* Right Selected Lot Summary Panel */}
-        <div className="lg:col-span-4 bg-white sm:rounded-[32px] shadow-[0_14px_40px_rgba(20,21,23,0.06)] border border-black/[0.04] p-5 flex flex-col justify-between gap-4">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-[16px] font-bold text-[#141517]">
-                Selected Location
-              </h2>
-              <span className="text-[12px] text-[#767B84] tabular-nums">
-                {lots.length} nearby
-              </span>
-            </div>
-
-            <div className="relative rounded-[20px] overflow-hidden aspect-[16/10] bg-[#E8ECE6]">
-              <img
-                src={activeLot.images[0]}
-                alt={activeLot.name}
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute top-3 left-3 inline-flex items-center gap-1.5 bg-white/95 text-[#141517] px-3 py-1.5 rounded-full text-[11px] font-medium shadow-sm">
-                <Clock className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>{activeLot.openHours}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => onToggleFavorite(activeLot.id)}
-                aria-label={
-                  favoriteIds.has(activeLot.id)
-                    ? `Remove ${activeLot.name} from favorites`
-                    : `Save ${activeLot.name} to favorites`
-                }
-                className="absolute top-2.5 right-2.5 w-10 h-10 rounded-full bg-white/95 flex items-center justify-center shadow-sm"
-              >
-                <Heart
-                  className={`w-[18px] h-[18px] ${
-                    favoriteIds.has(activeLot.id)
-                      ? 'fill-[#EF4444] text-[#EF4444]'
-                      : 'text-[#141517]'
-                  }`}
-                />
-              </button>
-            </div>
-
-            <div>
-              <div className="flex items-start justify-between gap-2">
-                <h3 className="text-[19px] font-bold text-[#141517]">
-                  {activeLot.name}
-                </h3>
-                <p className="text-[19px] font-extrabold text-[#141517] tabular-nums shrink-0">
-                  {formatCurrency(activeLot.pricePerHour)}
-                  <span className="text-[11px] font-medium text-[#767B84]">/hr</span>
-                </p>
-              </div>
-              <p className="mt-1 text-[13px] text-[#767B84] flex items-center gap-1.5">
-                <MapPin className="w-4 h-4 shrink-0 text-[#525760]" />
-                <span>{activeLot.address}</span>
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-[#F4F5F6] rounded-[16px] py-3.5 px-3 text-center">
-                <p className="text-[13px] font-bold text-[#141517]">Availability</p>
-                <p className="text-[12.5px] text-[#767B84] mt-0.5 tabular-nums">
-                  {activeAvailable} Space available
-                </p>
-              </div>
-              <div className="bg-[#F4F5F6] rounded-[16px] py-3.5 px-3 text-center">
-                <p className="text-[13px] font-bold text-[#141517]">
-                  {routeSummary && routeSummary.lotId === activeLot.id
-                    ? 'Drive Route'
-                    : userPosition
-                      ? 'From You'
-                      : 'Distance'}
-                </p>
-                <p
-                  data-testid="map-selected-distance"
-                  className="text-[12.5px] text-[#767B84] mt-0.5 tabular-nums"
+                <button
+                  type="button"
+                  onClick={handleLocateMe}
+                  disabled={locating}
+                  className="h-9 px-3 rounded-full bg-white/95 hover:bg-white text-[#141517] text-[12px] font-semibold shadow-md inline-flex items-center gap-1.5 transition-colors disabled:opacity-70"
                 >
-                  {routeSummary && routeSummary.lotId === activeLot.id
-                    ? `${routeSummary.durationText} · ${routeSummary.distanceText}`
-                    : `${activeDistanceKm.toFixed(1)} km away`}
-                </p>
+                  {locating ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Crosshair className="w-3.5 h-3.5" />
+                  )}
+                  <span>My Location</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchedPlace(null);
+                    setStatusMessage(null);
+                    setRecenterSeq((s) => s + 1);
+                  }}
+                  className="h-9 px-3 rounded-full bg-white/95 hover:bg-white text-[#141517] text-[12px] font-semibold shadow-md inline-flex items-center gap-1.5 transition-colors"
+                >
+                  <Navigation className="w-3.5 h-3.5" />
+                  <span>Phnom Penh</span>
+                </button>
+
+                {MAPS_API_KEY && (
+                  <button
+                    type="button"
+                    onClick={() => setPlacesDiscoverySeq((s) => s + 1)}
+                    className="h-9 px-3 rounded-full bg-[#141517]/95 hover:bg-[#141517] text-white text-[12px] font-semibold shadow-md inline-flex items-center gap-1.5 transition-colors"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-[#C5EC45]" />
+                    <span>Scan Google Places</span>
+                  </button>
+                )}
               </div>
             </div>
 
-            <p className="text-[13px] leading-[1.6] text-[#6B7280]">
-              {activeLot.description}
-            </p>
-          </div>
+            {/* Route Summary Banner (when active) */}
+            {routeSummary && (
+              <div className="absolute top-16 left-3.5 z-10 bg-[#141517] text-white px-3.5 py-2 rounded-full shadow-lg text-[12px] font-semibold flex items-center gap-2">
+                <RouteIcon className="w-3.5 h-3.5 text-[#C5EC45]" />
+                <span>
+                  Drive: {routeSummary.durationText} · {routeSummary.distanceText}
+                </span>
+              </div>
+            )}
 
-          <div className="flex flex-col gap-2.5 pt-2">
-            <button
-              type="button"
-              onClick={() => onOpenSelectSpace(activeLot.id)}
-              className="w-full h-12 rounded-full bg-[#C5EC45] hover:bg-[#B6DE35] text-[#141517] text-[14px] font-semibold transition-colors"
-            >
-              Select Space
-            </button>
-            <div className="grid grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                onClick={handleRequestDirections}
-                className="h-11 rounded-full bg-[#F4F5F6] hover:bg-[#E8EAED] text-[#141517] text-[13.5px] font-semibold transition-colors inline-flex items-center justify-center gap-1.5"
-              >
-                <RouteIcon className="w-4 h-4" />
-                <span>Directions</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => onOpenDetails(activeLot.id)}
-                className="h-11 rounded-full bg-[#F4F5F6] hover:bg-[#E8EAED] text-[#141517] text-[13.5px] font-semibold transition-colors"
-              >
-                View Details
-              </button>
+            {/* Bottom Marker Legend */}
+            <div className="absolute bottom-3.5 left-3.5 right-3.5 z-10 flex items-center justify-between gap-2 pointer-events-none">
+              <div className="bg-white/95 backdrop-blur-sm rounded-full px-3.5 py-2 shadow-md border border-black/[0.05] flex items-center gap-3 overflow-x-auto no-scrollbar pointer-events-auto">
+                {MARKER_LEGEND.map((item) => (
+                  <div
+                    key={item.variant}
+                    className="flex items-center gap-1.5 text-[11px] font-semibold text-[#141517] whitespace-nowrap shrink-0"
+                  >
+                    <span className={`w-2.5 h-2.5 rounded-full ${item.dotClass}`} />
+                    <span>{item.label}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

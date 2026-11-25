@@ -383,10 +383,12 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                 </p>
               </div>
               <div className="text-right shrink-0">
-                <p className="text-[18px] font-extrabold text-[#141517] tabular-nums">
-                  {formatCurrency(lot.pricePerHour)}
+                <p className="text-[17px] font-extrabold text-[#141517] tabular-nums">
+                  {lot.pricePerHour === 0 ? 'Free' : formatCurrency(lot.pricePerHour)}
                 </p>
-                <p className="text-[11px] text-[#767B84]">per hour</p>
+                <p className="text-[11px] text-[#767B84]">
+                  {lot.pricePerHour === 0 ? 'demo rate' : 'per hour (est.)'}
+                </p>
               </div>
             </div>
 
@@ -445,7 +447,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                   setLicensePlate(e.target.value.toUpperCase());
                   setErrors((prev) => ({ ...prev, licensePlate: undefined }));
                 }}
-                placeholder="e.g. CA-8KLP24"
+                placeholder="e.g. PP-2AB-4821"
                 className={`w-full h-11 px-4 rounded-2xl bg-[#F4F5F6] font-mono text-[14px] text-[#141517] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:bg-white transition-all ${
                   errors.licensePlate
                     ? 'ring-2 ring-[#EF4444] bg-white'

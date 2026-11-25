@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Map, Settings } from 'lucide-react';
+import { LayoutGrid, Map, Settings } from 'lucide-react';
 import type { ActiveTab } from '../types/parking';
 
 interface DesktopTopBarProps {
@@ -16,29 +16,34 @@ export const DesktopTopBar: React.FC<DesktopTopBarProps> = ({
   onQuickBook,
 }) => {
   return (
-    <header className="hidden md:block sticky top-0 z-40 bg-[#F6F8F3]/90 backdrop-blur-md border-b border-black/[0.05]">
-      <div className="max-w-[1120px] mx-auto px-5 lg:px-8 h-[60px] flex items-center justify-between gap-6 lg:gap-8">
-        {/* Zone 1: Single-element Brand Wordmark */}
-        <button
-          type="button"
-          onClick={() => onSelectTab('home')}
-          className="text-[20px] font-extrabold tracking-[-0.03em] text-[#141517] whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141517] rounded-lg px-1"
-        >
-          PrestigePark
-        </button>
+    <header className="hidden lg:block sticky top-0 z-40 bg-[#F6F8F3]/95 backdrop-blur-md border-b border-black/[0.05]">
+      <div className="max-w-[1440px] mx-auto px-6 xl:px-8 h-[64px] flex items-center justify-between gap-6">
+        {/* Zone 1: Brand Wordmark + Phnom Penh Focus Pill */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => onSelectTab('map')}
+            className="text-[20px] font-extrabold tracking-[-0.03em] text-[#141517] whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141517] rounded-lg px-1"
+          >
+            ParkEasy
+          </button>
+          <span className="px-2.5 py-0.5 rounded-full bg-[#E8F8B4] text-[#3F5A05] text-[11px] font-bold whitespace-nowrap">
+            Phnom Penh
+          </span>
+        </div>
 
         {/* Zone 2: Clean Single-Line Navigation Links */}
         <nav aria-label="Primary navigation" className="flex items-center gap-8">
           {(
             [
-              { id: 'home', label: 'Home' },
-              { id: 'map', label: 'Map' },
+              { id: 'map', label: 'Discover Map' },
+              { id: 'home', label: 'Bay Selector (Demo)' },
               {
                 id: 'settings',
                 label:
                   activeBookingCount > 0
-                    ? `Bookings & Settings (${activeBookingCount})`
-                    : 'Settings',
+                    ? `Saved & Bookings (${activeBookingCount})`
+                    : 'Saved & Settings',
               },
             ] as const
           ).map((item) => {
@@ -64,14 +69,14 @@ export const DesktopTopBar: React.FC<DesktopTopBarProps> = ({
           })}
         </nav>
 
-        {/* Zone 3: Single Primary Action */}
+        {/* Zone 3: Primary Action */}
         <div className="shrink-0">
           <button
             type="button"
             onClick={onQuickBook}
             className="px-5 h-10 rounded-full bg-[#C5EC45] hover:bg-[#B6DE35] text-[#141517] text-[13.5px] font-semibold transition-colors whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141517]"
           >
-            Book Selected Space
+            Book Selected Bay
           </button>
         </div>
       </div>
@@ -85,10 +90,6 @@ interface MobileBottomNavProps {
   activeBookingCount: number;
 }
 
-/**
- * Exact recreation of the Screen 1 floating pill bottom navigation bar:
- * Home (lime active pill) | Map (soft grey pill) | Setting (soft grey pill)
- */
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   activeTab,
   onSelectTab,
@@ -99,15 +100,15 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     label: string;
     icon: React.ComponentType<{ className?: string }>;
   }> = [
-    { id: 'home', label: 'Home', icon: Home },
     { id: 'map', label: 'Map', icon: Map },
-    { id: 'settings', label: 'Setting', icon: Settings },
+    { id: 'home', label: 'Bays', icon: LayoutGrid },
+    { id: 'settings', label: 'Saved', icon: Settings },
   ];
 
   return (
     <nav
       aria-label="Mobile navigation"
-      className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-black/[0.05] px-4 py-3 shadow-[0_-8px_24px_rgba(20,21,23,0.05)]"
+      className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-black/[0.05] px-4 py-3 shadow-[0_-8px_24px_rgba(20,21,23,0.05)]"
     >
       <div className="max-w-[440px] mx-auto grid grid-cols-3 gap-2.5">
         {navItems.map(({ id, label, icon: Icon }) => {

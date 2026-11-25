@@ -1,8 +1,14 @@
 import type {
+  AvailabilityStatus,
   BookingRecord,
+  EvFilterMode,
+  FacilityType,
   FloorId,
+  MarkerColorVariant,
   ParkingBay,
   ParkingLot,
+  PriceBracketFilter,
+  PriceReport,
   VehicleCategory,
 } from '../types/parking';
 
@@ -14,11 +20,234 @@ export const FLOOR_LABELS: Record<FloorId, string> = {
 
 export const FLOOR_ORDER: FloorId[] = ['ground', 'first', 'second'];
 
+export const KHR_PER_USD = 4000;
 export const SERVICE_FEE_RATE = 0.05;
-export const MIN_SERVICE_FEE = 1.5;
+export const MIN_SERVICE_FEE_KHR = 1000;
+
+export const FACILITY_TYPE_LABELS: Record<FacilityType, string> = {
+  mall: 'Shopping Mall',
+  commercial: 'Commercial Building',
+  hotel: 'Hotel Parking',
+  public: 'Public Parking Lot',
+  private: 'Private Facility',
+  street: 'Street Parking',
+  ev_station: 'EV Charging Station',
+};
+
+export const VEHICLE_TYPE_LABELS: Record<VehicleCategory, string> = {
+  car: 'Car',
+  motorcycle: 'Motorcycle',
+  bicycle: 'Bicycle',
+  ev: 'Electric Vehicle',
+};
+
+export const AVAILABILITY_LABELS: Record<AvailabilityStatus, string> = {
+  available: 'Available',
+  limited: 'Limited spaces',
+  full: 'Full',
+  unknown: 'Unknown',
+};
 
 export function getFloorLabel(floor: FloorId): string {
   return FLOOR_LABELS[floor];
+}
+
+export function formatKhr(amount: number): string {
+  return `${Math.round(amount).toLocaleString('en-US')} KHR`;
+}
+
+export function formatUsdApprox(khrAmount: number): string {
+  const usd = khrAmount / KHR_PER_USD;
+  return `~$${usd.toFixed(2)}`;
+}
+
+/** Legacy-friendly currency formatter now rendering KHR */
+export function formatCurrency(amountKhr: number): string {
+  return formatKhr(amountKhr);
+}
+
+/** Returns a concise primary hourly/entry price string for cards & marker tooltips */
+export function getCompactPriceDisplay(lot: ParkingLot): {
+  primaryText: string;
+  secondaryUsd: string | null;
+  status: 'confirmed' | 'estimated' | 'unavailable';
+} {
+  if (lot.facilityType === 'ev_station' && lot.evCharging) {
+    if (lot.evCharging.pricePerKwhKhr !== null) {
+      return {
+        primaryText: `${formatKhr(lot.evCharging.pricePerKwhKhr)}/kWh`,
+        secondaryUsd: formatUsdApprox(lot.evCharging.pricePerKwhKhr),
+        status: lot.evCharging.priceStatus,
+      };
+    }
+    return {
+      primaryText: 'Price unavailable',
+      secondaryUsd: null,
+      status: 'unavailable',
+    };
+  }
+
+  if (lot.pricing.isFree && lot.pricePerHourKhr === 0) {
+    return {
+      primaryText: 'Free parking',
+      secondaryUsd: null,
+      status: lot.pricing.verificationStatus,
+    };
+  }
+
+  if (lot.pricing.carHourly?.khr !== null && lot.pricing.carHourly?.khr !== undefined) {
+    const val = lot.pricing.carHourly.khr;
+    const unitLabel = lot.pricing.carHourly.unit === 'entry' ? '/entry' : '/hr';
+    return {
+      primaryText: `${formatKhr(val)}${unitLabel}`,
+      secondaryUsd: formatUsdApprox(val),
+      status: lot.pricing.verificationStatus,
+    };
+  }
+
+  if (lot.pricing.motorcycle?.khr !== null && lot.pricing.motorcycle?.khr !== undefined) {
+    const val = lot.pricing.motorcycle.khr;
+    return {
+      primaryText: `Moto ${formatKhr(val)}`,
+      secondaryUsd: formatUsdApprox(val),
+      status: lot.pricing.verificationStatus,
+    };
+  }
+
+  return {
+    primaryText: 'Price unavailable',
+    secondaryUsd: null,
+    status: 'unavailable',
+  };
+}
+
+/**
+ * Determines marker color per design spec:
+ * - Cyan: EV charging stations
+ * - Green: Available parking
+ * - Orange: Limited parking
+ * - Red: Full parking
+ * - Purple: Shopping mall parking (when availability is unknown)
+ * - Blue: General parking (commercial, hotel, public, private, street when unknown)
+ */
+export function getMarkerColorVariant(lot: ParkingLot): MarkerColorVariant {
+  if (lot.facilityType === 'ev_station') {
+    return 'cyan';
+  }
+  if (lot.availability.status === 'available') {
+    return 'green';
+  }
+  if (lot.availability.status === 'limited') {
+    return 'orange';
+  }
+  if (lot.availability.status === 'full') {
+    return 'red';
+  }
+  if (lot.facilityType === 'mall') {
+    return 'purple';
+  }
+  return 'blue';
+}
+
+export function calculateDistanceKm(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number }
+): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const R = 6371;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const sinLat = Math.sin(dLat / 2);
+  const sinLng = Math.sin(dLng / 2);
+  const h =
+    sinLat * sinLat +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * sinLng * sinLng;
+  const c = 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+  return Number((R * c).toFixed(2));
+}
+
+export function findNearestParkingLot(
+  lots: ParkingLot[],
+  userPos: { lat: number; lng: number }
+): { lot: ParkingLot; distanceKm: number } | null {
+  if (lots.length === 0) return null;
+  let nearestLot = lots[0];
+  let minDistance = calculateDistanceKm(userPos, lots[0].position);
+  for (let i = 1; i < lots.length; i++) {
+    const dist = calculateDistanceKm(userPos, lots[i].position);
+    if (dist < minDistance) {
+      minDistance = dist;
+      nearestLot = lots[i];
+    }
+  }
+  return { lot: nearestLot, distanceKm: minDistance };
+}
+
+export const DEFAULT_DAILY_STAY_HOURS = 8;
+
+export interface DailyRateComparisonItem {
+  id: string;
+  name: string;
+  shortName: string;
+  district: string;
+  distanceKm: number;
+  hourlyRate: number;
+  dailyRate: number;
+  rating: number | null;
+  availableSpaces: number;
+}
+
+export function calculateDailyRate(
+  hourlyRateKhr: number,
+  hoursPerDay = DEFAULT_DAILY_STAY_HOURS
+): number {
+  const safeHours = Math.max(1, Math.min(24, Math.round(hoursPerDay)));
+  const safeRate = Math.max(0, hourlyRateKhr);
+  return Math.round(safeRate * safeHours);
+}
+
+function abbreviateLotName(name: string): string {
+  return name
+    .replace(/\s*\([^)]*\)/g, '')
+    .replace(/\s+Parking$/i, '')
+    .replace(/\s+Mega\s+Mall$/i, '')
+    .replace(/\s+Mall$/i, '')
+    .slice(0, 18);
+}
+
+export function getTopNearestDailyRates(
+  lots: ParkingLot[],
+  activeBookedBayKeys: Set<string>,
+  referencePos: { lat: number; lng: number } = { lat: 11.5625, lng: 104.916 },
+  limit = 5,
+  hoursPerDay = DEFAULT_DAILY_STAY_HOURS
+): DailyRateComparisonItem[] {
+  const safeLimit = Math.max(1, Math.round(limit));
+  return lots
+    .filter(
+      (lot) =>
+        lot.pricing.carHourly?.khr !== null &&
+        lot.pricing.carHourly?.khr !== undefined &&
+        lot.pricing.carHourly.khr > 0
+    )
+    .map((lot) => ({
+      lot,
+      dist: calculateDistanceKm(referencePos, lot.position),
+      rate: lot.pricing.carHourly!.khr!,
+    }))
+    .sort((a, b) => a.dist - b.dist || a.rate - b.rate)
+    .slice(0, safeLimit)
+    .map(({ lot, dist, rate }) => ({
+      id: lot.id,
+      name: lot.name,
+      shortName: abbreviateLotName(lot.name),
+      district: lot.district,
+      distanceKm: dist,
+      hourlyRate: rate,
+      dailyRate: calculateDailyRate(rate, hoursPerDay),
+      rating: lot.rating,
+      availableSpaces: countAvailableSpaces(lot, activeBookedBayKeys),
+    }));
 }
 
 export function getBayCompositeKey(lotId: string, bayId: string): string {
@@ -112,13 +341,155 @@ export function filterParkingLots(
       lot.tagline,
       lot.address,
       lot.district,
+      ...(lot.landmarks ?? []),
       ...lot.facilities,
+      lot.evCharging?.provider ?? '',
     ]
       .join(' ')
       .toLowerCase();
 
     return haystack.includes(normalizedQuery);
   });
+}
+
+export interface PhnomPenhFilterCriteria {
+  query: string;
+  district: string; // 'All Phnom Penh' or specific district
+  vehicleType: VehicleCategory | 'all';
+  priceBracket: PriceBracketFilter;
+  facilityType: FacilityType | 'all';
+  availability: AvailabilityStatus | 'all';
+  evFilter: EvFilterMode;
+  nearUserOnly?: boolean;
+  userPosition?: { lat: number; lng: number } | null;
+  maxDistanceKm?: number;
+}
+
+function matchesPriceBracket(lot: ParkingLot, bracket: PriceBracketFilter): boolean {
+  if (bracket === 'all') return true;
+  if (bracket === 'free') {
+    return Boolean(lot.pricing.isFree) || lot.pricePerHourKhr === 0;
+  }
+
+  // Determine representative hourly/entry KHR rate for filtering
+  const rate =
+    lot.pricing.carHourly?.khr ??
+    lot.pricing.motorcycle?.khr ??
+    lot.pricePerHourKhr;
+
+  if (rate === null || rate === undefined) {
+    return false;
+  }
+
+  if (bracket === 'under_2000') {
+    return rate > 0 && rate < 2000;
+  }
+  if (bracket === '2000_to_5000') {
+    return rate >= 2000 && rate <= 5000;
+  }
+  if (bracket === 'above_5000') {
+    return rate > 5000;
+  }
+  return true;
+}
+
+function matchesEvFilter(lot: ParkingLot, evFilter: EvFilterMode): boolean {
+  if (evFilter === 'all') return true;
+  if (lot.facilityType !== 'ev_station' && !lot.evCharging) return false;
+  if (evFilter === 'available') {
+    return (
+      lot.evCharging?.liveStatus === 'available' ||
+      lot.availability.status === 'available'
+    );
+  }
+  if (evFilter === 'fast') {
+    return lot.evCharging?.speedTier === 'fast';
+  }
+  if (evFilter === 'standard') {
+    return lot.evCharging?.speedTier === 'standard';
+  }
+  return true;
+}
+
+export function filterPhnomPenhLots(
+  lots: ParkingLot[],
+  criteria: PhnomPenhFilterCriteria
+): ParkingLot[] {
+  const normalizedQuery = criteria.query.trim().toLowerCase();
+
+  const filtered = lots.filter((lot) => {
+    if (
+      criteria.district &&
+      criteria.district !== 'All Phnom Penh' &&
+      lot.district.toLowerCase() !== criteria.district.toLowerCase()
+    ) {
+      return false;
+    }
+
+    if (
+      criteria.vehicleType !== 'all' &&
+      !lot.categories.includes(criteria.vehicleType)
+    ) {
+      return false;
+    }
+
+    if (
+      criteria.facilityType !== 'all' &&
+      lot.facilityType !== criteria.facilityType
+    ) {
+      return false;
+    }
+
+    if (
+      criteria.availability !== 'all' &&
+      lot.availability.status !== criteria.availability
+    ) {
+      return false;
+    }
+
+    if (!matchesPriceBracket(lot, criteria.priceBracket)) {
+      return false;
+    }
+
+    if (!matchesEvFilter(lot, criteria.evFilter)) {
+      return false;
+    }
+
+    if (criteria.nearUserOnly && criteria.userPosition) {
+      const dist = calculateDistanceKm(criteria.userPosition, lot.position);
+      if (dist > (criteria.maxDistanceKm ?? 3.5)) {
+        return false;
+      }
+    }
+
+    if (!normalizedQuery) return true;
+
+    const haystack = [
+      lot.name,
+      lot.tagline,
+      lot.address,
+      lot.district,
+      FACILITY_TYPE_LABELS[lot.facilityType],
+      ...(lot.landmarks ?? []),
+      ...lot.facilities,
+      lot.evCharging?.provider ?? '',
+      ...(lot.evCharging?.connectorTypes ?? []),
+    ]
+      .join(' ')
+      .toLowerCase();
+
+    return haystack.includes(normalizedQuery);
+  });
+
+  if (criteria.userPosition) {
+    return [...filtered].sort((a, b) => {
+      const distA = calculateDistanceKm(criteria.userPosition!, a.position);
+      const distB = calculateDistanceKm(criteria.userPosition!, b.position);
+      return distA - distB;
+    });
+  }
+
+  return filtered;
 }
 
 export interface BookingSummary {
@@ -128,14 +499,15 @@ export interface BookingSummary {
 }
 
 export function calculateBookingSummary(
-  hourlyRate: number,
+  hourlyRateKhr: number,
   durationHours: number
 ): BookingSummary {
   const safeHours = Math.max(1, Math.min(24, Math.round(durationHours)));
-  const subtotal = Number((hourlyRate * safeHours).toFixed(2));
+  const subtotal = Math.round(hourlyRateKhr * safeHours);
   const rawFee = subtotal * SERVICE_FEE_RATE;
-  const serviceFee = Number(Math.max(MIN_SERVICE_FEE, rawFee).toFixed(2));
-  const totalPrice = Number((subtotal + serviceFee).toFixed(2));
+  const serviceFee =
+    subtotal === 0 ? 0 : Math.round(Math.max(MIN_SERVICE_FEE_KHR, rawFee));
+  const totalPrice = subtotal + serviceFee;
 
   return { subtotal, serviceFee, totalPrice };
 }
@@ -169,8 +541,8 @@ export function validateBookingInput(input: BookingInput): BookingValidationResu
   const cleanedPlate = input.licensePlate.trim().toUpperCase();
   if (!cleanedPlate) {
     errors.licensePlate = 'License plate is required.';
-  } else if (cleanedPlate.length < 3 || cleanedPlate.length > 12) {
-    errors.licensePlate = 'Enter a valid plate (3–12 characters).';
+  } else if (cleanedPlate.length < 3 || cleanedPlate.length > 14) {
+    errors.licensePlate = 'Enter a valid plate (3–14 characters).';
   } else if (!/^[A-Z0-9-\s]+$/.test(cleanedPlate)) {
     errors.licensePlate = 'Use letters, numbers, or hyphens only.';
   }
@@ -209,14 +581,14 @@ export interface VehicleValidationResult {
 export function validateVehicleInput(input: VehicleInput): VehicleValidationResult {
   const errors: VehicleValidationResult['errors'] = {};
   if (input.label.trim().length < 2) {
-    errors.label = 'Enter a vehicle name (e.g. Honda Civic).';
+    errors.label = 'Enter a vehicle name (e.g. Toyota Prius).';
   }
 
   const plate = input.plate.trim().toUpperCase();
   if (!plate) {
     errors.plate = 'License plate is required.';
-  } else if (plate.length < 3 || plate.length > 12 || !/^[A-Z0-9-\s]+$/.test(plate)) {
-    errors.plate = 'Enter a valid plate (3–12 letters/numbers).';
+  } else if (plate.length < 3 || plate.length > 14 || !/^[A-Z0-9-\s]+$/.test(plate)) {
+    errors.plate = 'Enter a valid plate (3–14 letters/numbers).';
   }
 
   return {
@@ -225,126 +597,53 @@ export function validateVehicleInput(input: VehicleInput): VehicleValidationResu
   };
 }
 
+export function validatePriceReport(input: {
+  reportedPriceKhr: string;
+  notes: string;
+}): {
+  valid: boolean;
+  parsedPrice?: number;
+  errors: { reportedPriceKhr?: string; notes?: string };
+} {
+  const errors: { reportedPriceKhr?: string; notes?: string } = {};
+  const trimmed = input.reportedPriceKhr.replace(/,/g, '').trim();
+  const parsed = Number(trimmed);
+
+  if (!trimmed || !Number.isFinite(parsed) || parsed < 0 || parsed > 2000000) {
+    errors.reportedPriceKhr = 'Enter a valid rate in KHR (0 – 2,000,000).';
+  }
+
+  if (input.notes.trim().length > 300) {
+    errors.notes = 'Note must be 300 characters or fewer.';
+  }
+
+  return {
+    valid: Object.keys(errors).length === 0,
+    parsedPrice: Number.isFinite(parsed) ? Math.round(parsed) : undefined,
+    errors,
+  };
+}
+
+export function createPriceReportRecord(params: {
+  lotId: string;
+  lotName: string;
+  vehicleType: PriceReport['vehicleType'];
+  reportedPriceKhr: number;
+  notes: string;
+}): PriceReport {
+  return {
+    id: `pr-${Date.now()}`,
+    lotId: params.lotId,
+    lotName: params.lotName,
+    vehicleType: params.vehicleType,
+    reportedPriceKhr: Math.round(params.reportedPriceKhr),
+    notes: params.notes.trim(),
+    createdAt: new Date().toISOString(),
+  };
+}
+
 export function formatBookingCode(bayLabel: string, seedNumber: number): string {
   const normalizedBay = bayLabel.replace(/[^A-Z0-9]/gi, '').toUpperCase();
   const suffix = String(Math.abs(seedNumber) % 9000 + 1000);
   return `PK-${normalizedBay}-${suffix}`;
 }
-
-export function formatCurrency(amount: number): string {
-  return `$${amount.toFixed(2)}`;
-}
-
-export interface LatLngPoint {
-  lat: number;
-  lng: number;
-}
-
-/** Calculates great-circle distance in kilometers between two coordinates using the Haversine formula. */
-export function calculateDistanceKm(from: LatLngPoint, to: LatLngPoint): number {
-  const EARTH_RADIUS_KM = 6371;
-  const toRad = (deg: number) => (deg * Math.PI) / 180;
-
-  const dLat = toRad(to.lat - from.lat);
-  const dLng = toRad(to.lng - from.lng);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(from.lat)) *
-      Math.cos(toRad(to.lat)) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
-
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return Number((EARTH_RADIUS_KM * c).toFixed(2));
-}
-
-export function findNearestParkingLot(
-  lots: ParkingLot[],
-  userPos: LatLngPoint
-): { lot: ParkingLot; distanceKm: number } | null {
-  if (lots.length === 0) return null;
-
-  let nearestLot = lots[0];
-  let minDistance = calculateDistanceKm(userPos, lots[0].position);
-
-  for (let i = 1; i < lots.length; i++) {
-    const dist = calculateDistanceKm(userPos, lots[i].position);
-    if (dist < minDistance) {
-      minDistance = dist;
-      nearestLot = lots[i];
-    }
-  }
-
-  return { lot: nearestLot, distanceKm: minDistance };
-}
-
-/** Clamps a star rating into the inclusive [1, 5] integer range for safe display. */
-export function clampReviewRating(rating: number): number {
-  if (!Number.isFinite(rating)) return 5;
-  return Math.max(1, Math.min(5, Math.round(rating)));
-}
-
-/** Formats review totals with proper singular/plural wording. */
-export function formatReviewCountLabel(count: number): string {
-  const safeCount = Math.max(0, Math.round(count));
-  return safeCount === 1 ? '1 review' : `${safeCount} reviews`;
-}
-
-export const DEFAULT_DAILY_STAY_HOURS = 8;
-
-export interface DailyRateComparisonItem {
-  id: string;
-  name: string;
-  shortName: string;
-  district: string;
-  distanceKm: number;
-  hourlyRate: number;
-  dailyRate: number;
-  rating: number;
-  availableSpaces: number;
-}
-
-/** Computes estimated daily parking rate for a given hourly rate and daily stay hours. */
-export function calculateDailyRate(
-  hourlyRate: number,
-  hoursPerDay = DEFAULT_DAILY_STAY_HOURS
-): number {
-  const safeHours = Math.max(1, Math.min(24, Math.round(hoursPerDay)));
-  const safeRate = Math.max(0, hourlyRate);
-  return Number((safeRate * safeHours).toFixed(2));
-}
-
-function abbreviateLotName(name: string): string {
-  return name
-    .replace(/\s+Garage$/i, '')
-    .replace(/\s+Parking$/i, '')
-    .replace(/\s+Deck$/i, '')
-    .replace(/\s+Hub$/i, '')
-    .replace(/\s+&\s+Ride$/i, '');
-}
-
-/** Returns top nearest parking lots sorted ascending by distance with daily rate comparison metrics. */
-export function getTopNearestDailyRates(
-  lots: ParkingLot[],
-  activeBookedBayKeys: Set<string>,
-  limit = 5,
-  hoursPerDay = DEFAULT_DAILY_STAY_HOURS
-): DailyRateComparisonItem[] {
-  const safeLimit = Math.max(1, Math.round(limit));
-  return [...lots]
-    .sort((a, b) => a.distanceKm - b.distanceKm || a.pricePerHour - b.pricePerHour)
-    .slice(0, safeLimit)
-    .map((lot) => ({
-      id: lot.id,
-      name: lot.name,
-      shortName: abbreviateLotName(lot.name),
-      district: lot.district,
-      distanceKm: lot.distanceKm,
-      hourlyRate: lot.pricePerHour,
-      dailyRate: calculateDailyRate(lot.pricePerHour, hoursPerDay),
-      rating: lot.rating,
-      availableSpaces: countAvailableSpaces(lot, activeBookedBayKeys),
-    }));
-}
-
-
