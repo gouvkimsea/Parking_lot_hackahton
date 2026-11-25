@@ -1,0 +1,8 @@
+{
+  "name": "PrestigePark — Find Nearby Parking",
+  "description": "Modern smart parking finder and interactive bay reservation web app with live space selection, city map explorer, and digital parking passes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
