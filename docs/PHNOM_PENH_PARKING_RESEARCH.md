@@ -1,8 +1,8 @@
 # Phnom Penh Smart Parking & EV Charging Deep Research Database
 
-**Last Verified:** 2026-11-25
-**Total Discovered Facilities:** 90 (78 parking facilities + 12 dedicated EV charging stations)
-**Total EV-Capable Locations:** 13
+**Last Verified:** 2026-11-26
+**Total Discovered Facilities:** 150 (133 parking facilities + 17 dedicated EV charging stations)
+**Total EV-Capable Locations:** 18
 
 ---
 
@@ -11,36 +11,38 @@
 ### By District / Khan
 | District / Khan | Facilities |
 |---|---:|
-| Daun Penh | 27 |
-| Chamkar Mon | 13 |
-| Toul Kork | 12 |
-| Sen Sok | 9 |
-| 7 Makara | 5 |
-| Mean Chey | 4 |
-| BKK1 | 4 |
-| Russey Keo | 4 |
-| Chroy Changvar | 4 |
-| Chbar Ampov | 3 |
-| BKK2 | 2 |
-| BKK3 | 1 |
-| Por Sen Chey | 1 |
-| Dangkao | 1 |
+| Daun Penh | 42 |
+| Chamkar Mon | 18 |
+| Toul Kork | 18 |
+| Chroy Changvar | 12 |
+| Sen Sok | 11 |
+| BKK1 | 7 |
+| Mean Chey | 6 |
+| 7 Makara | 6 |
+| Chbar Ampov | 6 |
+| Russey Keo | 5 |
+| Dangkao | 5 |
+| Por Sen Chey | 4 |
+| BKK2 | 3 |
+| Prek Pnov | 3 |
+| BKK3 | 2 |
+| Kamboul | 2 |
 
 ### By Parking Category
 | Category | Facilities |
 |---|---:|
-| Shopping Mall / Retail (`mall`) | 19 |
-| EV Charging Station (`ev_station`) | 12 |
-| Commercial Building (`commercial`) | 11 |
+| Shopping Mall / Retail (`mall`) | 28 |
+| Commercial Building (`commercial`) | 18 |
+| Market Parking (`market`) | 17 |
+| EV Charging Station (`ev_station`) | 17 |
+| Hotel / Resort (`hotel`) | 14 |
+| Hospital / Clinic (`hospital`) | 12 |
+| University / Campus (`university`) | 12 |
+| Public Parking Lot (`public`) | 9 |
 | Motorcycle Parking (`motorcycle_lot`) | 8 |
-| Hotel / Resort (`hotel`) | 7 |
-| Hospital / Clinic (`hospital`) | 7 |
-| University / Campus (`university`) | 7 |
-| Market Parking (`market`) | 6 |
-| Private Parking (`private`) | 5 |
-| Public Parking Lot (`public`) | 3 |
-| Dining / Entertainment (`entertainment`) | 3 |
-| Permitted Street Parking (`street`) | 2 |
+| Private Parking (`private`) | 6 |
+| Dining / Entertainment (`entertainment`) | 5 |
+| Permitted Street Parking (`street`) | 4 |
 
 ---
 
@@ -138,6 +140,66 @@
 | `mpwt-hq-ev-station` | MPWT Headquarters Public EV Station | EV Charging Station | Daun Penh | Wat Phnom | MPWT EVStation | 7:00 AM – 8:00 PM | 11.57390, 104.92280 |
 | `connextion-koh-pich-ev` | Connextion Koh Pich EV Hub (OCIC) | EV Charging Station | Chamkar Mon | Tonle Bassac | OCIC / Destination EV | Open 24 Hours | 11.54741, 104.94002 |
 | `tan-ev-aeon-1` | TAN EV Fast Charging (AEON Mall 1) | EV Charging Station | Chamkar Mon | Tonle Bassac | TAN EV Charging | 9:00 AM – 10:00 PM | 11.54818, 104.93388 |
+| `phsar-bkk-market-lot` | Phsar Boeung Keng Kang (BKK Market) Parking | Market Parking | BKK1 | Boeng Keng Kang 1 | Local Market Perimeter Attendants | 6:00 AM – 7:00 PM | 11.54669, 104.92547 |
+| `phsar-chbar-ampov-lot` | Phsar Chbar Ampov Market Parking | Market Parking | Chbar Ampov | Chbar Ampov 1 | Chbar Ampov Market Management | 5:30 AM – 7:00 PM | 11.53259, 104.93538 |
+| `phsar-tuol-sangke-lot` | Phsar Tuol Sangke (Phsar Touch) Parking | Market Parking | Russey Keo | Tuol Sangke 1 | Tuol Sangke Market Lot | 6:00 AM – 7:00 PM | 11.58768, 104.91466 |
+| `phsar-chom-chao-lot` | Phsar Chom Chao (Prey Sar) Parking | Market Parking | Dangkao | Prey Sar | Local Market Attendants | 6:00 AM – 7:30 PM | 11.50082, 104.83092 |
+| `phsar-doeum-kor-lot` | Phsar Doeum Kor Market Parking | Market Parking | Toul Kork | Phsar Doeum Kor | Phsar Doeum Kor Market Attendants | 24 Hours (Wholesale Peak 2:00 AM – 10:00 AM) | 11.55360, 104.90218 |
+| `phsar-kab-ko-lot` | Phsar Kab Ko Market Parking | Market Parking | Chamkar Mon | Tonle Bassac | Phsar Kab Ko Market Attendants | 6:00 AM – 7:00 PM | 11.55498, 104.93207 |
+| `chroy-changvar-market-lot` | Chroy Changvar Market Parking | Market Parking | Chroy Changvar | Chroy Changvar | Chroy Changvar Market Attendants | 6:00 AM – 7:00 PM | 11.58340, 104.92710 |
+| `kantha-bopha-st240-hospital` | Kantha Bopha Children's Hospital Parking | Hospital / Clinic | Daun Penh | Chey Chumneas | Kantha Bopha Foundation | 24 Hours | 11.56144, 104.93090 |
+| `national-pediatric-hospital` | National Pediatric Hospital Parking | Hospital / Clinic | Toul Kork | Tuek L’ak 1 | National Pediatric Hospital | 24 Hours | 11.56800, 104.89700 |
+| `dangkao-referral-hospital` | Dangkao Referral Hospital Parking | Hospital / Clinic | Dangkao | Dangkao | Dangkao Referral Hospital | 24 Hours | 11.49850, 104.88720 |
+| `itc-sala-techno-parking` | Institute of Technology of Cambodia (ITC) Parking | University / Campus | Toul Kork | Tuek L’ak 1 | Institute of Technology of Cambodia | 6:30 AM – 8:30 PM | 11.57061, 104.89800 |
+| `morgan-enmaison-chroy-changvar` | Morgan EnMaison Podium & Basement Parking | Private Parking | Chroy Changvar | Chroy Changvar | Morgan EnMaison Property Management | 24 Hours | 11.59254, 104.93651 |
+| `prince-international-plaza` | Prince International Plaza Mall Parking | Shopping Mall / Retail | Sen Sok | Tuek Thla | Prince Real Estate Property Management | 8:00 AM – 10:00 PM | 11.56418, 104.88378 |
+| `prince-central-plaza` | Prince Central Plaza Parking | Commercial Building | Chamkar Mon | Tonle Bassac | Prince Real Estate Property Management | 24 Hours | 11.53365, 104.93382 |
+| `makro-chroy-changvar` | Makro Chroy Changvar Customer Parking | Shopping Mall / Retail | Chroy Changvar | Bak Kheng | Siam Makro (Cambodia) | 6:00 AM – 10:00 PM | 11.68237, 104.92017 |
+| `mean-chey-avenue-mall` | Mean Chey Avenue Shopping Center Parking | Shopping Mall / Retail | Mean Chey | Chak Angrae Kraom | Mean Chey Avenue Management | 9:00 AM – 10:00 PM | 11.51090, 104.92564 |
+| `lucky-chroy-changvar` | Lucky Supermarket (Chroy Changvar) Parking | Shopping Mall / Retail | Chroy Changvar | Chroy Changvar | DFI Lucky Private Limited | 8:00 AM – 9:30 PM | 11.59020, 104.92480 |
+| `tuol-sleng-museum-parking` | Tuol Sleng Museum Visitor Parking (BKK3) | Public Parking Lot | BKK3 | Boeng Keng Kang 3 | Tuol Sleng Perimeter Attendants | 8:00 AM – 5:00 PM | 11.54300, 104.91900 |
+| `wat-phnom-perimeter-parking` | Wat Phnom Perimeter Public Parking | Permitted Street Parking | Daun Penh | Wat Phnom | Daun Penh Public Curbside | 6:00 AM – 8:00 PM | 11.57610, 104.92310 |
+| `independence-monument-street` | Independence Monument / Preah Sihanouk Street Parking | Permitted Street Parking | Daun Penh | Chaktomuk | Municipal Permitted Street Bays | 24 Hours | 11.55640, 104.92810 |
+| `phnom-penh-intl-airport-lot` | Phnom Penh International Airport (PNH) Parking | Public Parking Lot | Por Sen Chey | Kakab | Cambodia Airports (PNH Site) | 24 Hours | 11.54120, 104.83970 |
+| `ptt-ev-pluz-veng-sreng` | PTT EV Station PluZ — Veng Sreng | EV Charging Station | Por Sen Chey | Chom Chao | PTT (Cambodia) / EV Station PluZ | 24 Hours | 11.53169, 104.86118 |
+| `ptt-ev-pluz-prek-pnov` | PTT EV Station PluZ — Prek Pnov | EV Charging Station | Prek Pnov | Por Nhea Leu | PTT (Cambodia) / EV Station PluZ | 24 Hours | 11.64250, 104.83500 |
+| `ptt-ev-pluz-prey-kei` | PTT EV Station PluZ — Prey Kei (NR3) | EV Charging Station | Por Sen Chey | Pleung Chhes Rotes | PTT (Cambodia) / EV Station PluZ | 24 Hours | 11.51200, 104.82100 |
+| `sathapana-tower` | Sathapana Tower Parking | Commercial Building | Daun Penh | Phsar Thmey III | Sathapana Tower Management (Dashou Ticketing) | 24/7 Season Pass / 7:00 AM – 8:00 PM Daytime | 11.56590, 104.92517 |
+| `vtrust-tower` | VTrust Tower Parking (Czech Republic Blvd) | Commercial Building | 7 Makara | Veal Vong | VTrust Tower Management | Office & Commercial Hours | 11.56459, 104.91186 |
+| `keystone-building` | Keystone Building Basement Parking | Commercial Building | BKK1 | Boeung Keng Kang I | CBRE Cambodia / Keystone Management | Office Hours (24/7 Tenant Access) | 11.55088, 104.92897 |
+| `oval-office-tower` | Oval Office Tower Parking (St. 360) | Commercial Building | BKK1 | Boeung Keng Kang I | Oval Office Tower Management | Office Hours | 11.54867, 104.92769 |
+| `phnom-penh-center` | Phnom Penh Center Commercial Lot | Commercial Building | Chamkar Mon | Tonle Bassac | Phnom Penh Center Management | 24 Hours | 11.55329, 104.93369 |
+| `garden-city-water-park` | Garden City Water Park Visitor Parking | Dining / Entertainment | Chroy Changvar | Prek Tasek | LYP Group / Garden City Water Park | 10:00 AM – 6:00 PM | 11.69528, 104.87497 |
+| `morodok-techo-stadium` | Morodok Techo National Stadium Parking | Public Parking Lot | Chroy Changvar | Prek Tasek | National Sports Complex Management | 6:00 AM – 9:00 PM (Event schedules vary) | 11.68298, 104.87631 |
+| `win-win-memorial` | Win-Win Monument Public Plaza Parking | Public Parking Lot | Chroy Changvar | Prek Tasek | Win-Win Memorial Grounds | 6:00 AM – 9:00 PM | 11.67863, 104.88526 |
+| `phnom-penh-safari` | Phnom Penh Safari Entrance Parking | Dining / Entertainment | Chroy Changvar | Prek Tasek | Phnom Penh Safari | 9:00 AM – 5:30 PM | 11.70127, 104.87172 |
+| `hotel-cambodiana` | Hotel Cambodiana Riverfront Parking | Hotel / Resort | Daun Penh | Chey Chumneas | Hotel Cambodiana | Open 24 Hours | 11.55979, 104.93653 |
+| `himawari-hotel-apartments` | Himawari Hotel Apartments Parking | Hotel / Resort | Daun Penh | Chey Chumneas | Himawari Hotel Apartments | Open 24 Hours | 11.56098, 104.93588 |
+| `sun-moon-urban-hotel` | SUN & MOON, Urban Hotel Parking | Hotel / Resort | Daun Penh | Phsar Chas | SUN & MOON Hotel Group | Open 24 Hours | 11.57044, 104.92715 |
+| `palace-gate-hotel` | Palace Gate Hotel & Resort Parking | Hotel / Resort | Daun Penh | Chaktomuk | EHM / Palace Gate Hotel | Open 24 Hours | 11.55844, 104.93154 |
+| `plantation-urban-resort` | The Plantation Urban Resort Parking | Hotel / Resort | Daun Penh | Phsar Thmey III | The Plantation Urban Resort & Spa | Open 24 Hours | 11.56343, 104.92700 |
+| `oakwood-premier-pp` | Oakwood Premier Phnom Penh Parking | Hotel / Resort | Toul Kork | Phsar Depo I | Oakwood Premier Phnom Penh | Open 24 Hours | 11.57643, 104.90491 |
+| `tribe-phnom-penh` | TRIBE Phnom Penh Post Office Square Parking | Hotel / Resort | Daun Penh | Wat Phnom | Accor / TRIBE Phnom Penh | Open 24 Hours | 11.57659, 104.92542 |
+| `prek-pnov-market-lot` | Prek Pnov Market (Phsar Prek Pnov) Parking | Market Parking | Prek Pnov | Prek Pnov | Local Market Parking Attendants | 5:00 AM – 6:30 PM | 11.66105, 104.86130 |
+| `prek-pnov-north-hub` | Prek Pnov Civic & Transit Approach Lot | Public Parking Lot | Prek Pnov | Prek Pnov | Prek Pnov Local Lot | 6:00 AM – 8:00 PM | 11.66532, 104.85525 |
+| `park-community-mall` | The Park Community Mall (Boeung Snor) Parking | Shopping Mall / Retail | Chbar Ampov | Chbar Ampov I | The Park Community Mall | 8:00 AM – 10:00 PM | 11.53439, 104.95417 |
+| `cho-ray-hospital-parking` | Cho Ray Phnom Penh Hospital Parking | Hospital / Clinic | Chbar Ampov | Niroth | Cho Ray Phnom Penh Hospital | Open 24 Hours (Emergency Access) | 11.53551, 104.96103 |
+| `rua-dangkao-parking` | Royal University of Agriculture (RUA) Parking | University / Campus | Dangkao | Dangkao | Royal University of Agriculture | 6:30 AM – 8:00 PM | 11.51185, 104.90038 |
+| `choeung-ek-center-parking` | Choeung Ek Memorial Visitor Parking | Public Parking Lot | Dangkao | Choeung Ek | Choeung Ek Genocidal Center | 7:30 AM – 5:30 PM | 11.48398, 104.90231 |
+| `phsar-stung-meanchey-lot` | Steung Meanchey New Market Parking | Market Parking | Mean Chey | Steung Meanchey I | Steung Meanchey Market Management | 6:00 AM – 9:00 PM | 11.53689, 104.88655 |
+| `ntti-sen-sok-parking` | National Technical Training Institute (NTTI) Parking | University / Campus | Sen Sok | Teuk Thla | NTTI Campus Administration | 6:30 AM – 8:30 PM | 11.56772, 104.87731 |
+| `bayon-market-tk` | Bayon Market (Toul Kork St. 337) Parking | Shopping Mall / Retail | Toul Kork | Boeung Kak I | Bayon Supermarket | 8:00 AM – 9:30 PM | 11.58374, 104.89179 |
+| `thai-huot-tk` | Thai Huot Market (Toul Kork St. 606) Parking | Shopping Mall / Retail | Toul Kork | Boeung Kak II | Thai Huot Supermarket | 7:30 AM – 9:00 PM | 11.57339, 104.89676 |
+| `thai-huot-monivong` | Thai Huot Market (Preah Monivong Blvd) Parking | Shopping Mall / Retail | Daun Penh | Phsar Thmey II | Thai Huot Supermarket | 7:30 AM – 9:00 PM | 11.57029, 104.91823 |
+| `super-duper-ttp` | Super Duper (Tuol Tom Poung St. 488) Parking | Shopping Mall / Retail | Chamkar Mon | Phsar Daeum Thkov | Super Duper Supermarket | Open 24 Hours | 11.53356, 104.91616 |
+| `sihanouk-hospital-hope` | Sihanouk Hospital Center of HOPE Parking | Hospital / Clinic | Daun Penh | Boeung Raing | Sihanouk Hospital Center of HOPE (SHCH) | Open 24 Hours (Clinic Hours Mon–Sat) | 11.55930, 104.92451 |
+| `uhs-monivong-parking` | University of Health Sciences (UHS Main Campus) Parking | University / Campus | Daun Penh | Srah Chak | University of Health Sciences | 6:30 AM – 8:00 PM | 11.57340, 104.91784 |
+| `pannasastra-ttp-parking` | Paññāsāstra University (Tuol Tom Poung Campus) Parking | University / Campus | Chamkar Mon | Tuol Tom Poung I | Paññāsāstra University of Cambodia | 7:00 AM – 9:00 PM | 11.54129, 104.91822 |
+| `olympic-market-lot` | Phsar Olympic (Olympic Market) Parking | Market Parking | BKK2 | Olympic | Olympic Market Parking Attendants | 5:30 AM – 6:30 PM | 11.55405, 104.91078 |
+| `phsar-kamboul-lot` | Phsar Kamboul (Kamboul Market) Parking | Market Parking | Kamboul | Kantouk | Local Market Attendants | 5:00 AM – 7:00 PM | 11.52363, 104.78383 |
+| `ppsez-kamboul-parking` | Phnom Penh Special Economic Zone (PPSEZ) Gate Parking | Commercial Building | Kamboul | Boeung Thom | Royal Group Phnom Penh SEZ | Open 24 Hours (Security Check) | 11.48854, 104.78181 |
+| `chargeplus-wat-koh` | Charge+ (Wat Koh Street / Street 81) | EV Charging Station | Daun Penh | Phsar Thmey III | Charge+ Cambodia | Open 24 Hours | 11.56397, 104.92002 |
+| `ptt-ev-pluz-neak-vorn` | PTT EV Station PluZ — Neak Vorn | EV Charging Station | Daun Penh | Srah Chak | PTT (Cambodia) / EV Station PluZ | Open 24 Hours | 11.57052, 104.90517 |
 
 ---
 
@@ -225,6 +287,61 @@
 | Street 136 & Street 15 Moto Parking | Daun Penh | 2,000 KHR/entry (~$0.50) | Unknown | Unknown | — | medium |
 | Street 136 (East / Riverside Approach) Moto Parking | Daun Penh | 2,000 KHR/entry (~$0.50) | Unknown | Unknown | — | medium |
 | Street 118 (Phsar Chas South) Moto Parking | Daun Penh | 2,000 KHR/entry (~$0.50) | Unknown | Unknown | — | medium |
+| Phsar Boeung Keng Kang (BKK Market) Parking | BKK1 | 1,000 KHR/entry (~$0.25) | Unknown | Unknown | — | low |
+| Phsar Chbar Ampov Market Parking | Chbar Ampov | 1,000 KHR/entry (~$0.25) | Unknown | Unknown | — | low |
+| Phsar Tuol Sangke (Phsar Touch) Parking | Russey Keo | 1,000 KHR/entry (~$0.25) | Unknown | Unknown | — | low |
+| Phsar Chom Chao (Prey Sar) Parking | Dangkao | 1,000 KHR/entry (~$0.25) | Unknown | Unknown | — | low |
+| Phsar Doeum Kor Market Parking | Toul Kork | 1,000 KHR/entry (~$0.25) | Unknown | Unknown | — | low |
+| Phsar Kab Ko Market Parking | Chamkar Mon | 1,000 KHR/entry (~$0.25) | Unknown | Unknown | — | low |
+| Chroy Changvar Market Parking | Chroy Changvar | 1,000 KHR/entry (~$0.25) | Unknown | Unknown | — | low |
+| Kantha Bopha Children's Hospital Parking | Daun Penh | Unknown | Unknown | Unknown | — | unknown |
+| National Pediatric Hospital Parking | Toul Kork | Unknown | Unknown | Unknown | — | unknown |
+| Dangkao Referral Hospital Parking | Dangkao | Unknown | Unknown | Unknown | — | unknown |
+| Institute of Technology of Cambodia (ITC) Parking | Toul Kork | Unknown | Unknown | Unknown | — | unknown |
+| Morgan EnMaison Podium & Basement Parking | Chroy Changvar | Unknown | Unknown | Car: 160,000 KHR/month (~$40.00) | Moto: 40,000 KHR/month (~$10.00) | — | medium |
+| Prince International Plaza Mall Parking | Sen Sok | Unknown | Unknown | Unknown | — | unknown |
+| Prince Central Plaza Parking | Chamkar Mon | Unknown | Unknown | Unknown | — | unknown |
+| Makro Chroy Changvar Customer Parking | Chroy Changvar | 0 KHR (Free) | 0 KHR (Free) | Unknown | Free customer parking for shoppers | high |
+| Mean Chey Avenue Shopping Center Parking | Mean Chey | Unknown | Unknown | Unknown | — | unknown |
+| Lucky Supermarket (Chroy Changvar) Parking | Chroy Changvar | Unknown | Unknown | Unknown | — | unknown |
+| Tuol Sleng Museum Visitor Parking (BKK3) | BKK3 | Unknown | Unknown | Unknown | — | unknown |
+| Wat Phnom Perimeter Public Parking | Daun Penh | Unknown | Unknown | Unknown | — | unknown |
+| Independence Monument / Preah Sihanouk Street Parking | Daun Penh | Unknown | Unknown | Unknown | — | unknown |
+| Phnom Penh International Airport (PNH) Parking | Por Sen Chey | 2,000 KHR/entry (~$0.50) | 4,000 KHR/hour (~$1.00) | Car: 200,000 KHR/month (~$50.00) | Drop-off lane free first 10 minutes (Class 1 & 2) | high |
+| Sathapana Tower Parking | Daun Penh | Unknown | Unknown | Car: 400,000 KHR/month (~$100.00) | Moto: 60,000 KHR/month (~$15.00) | — | high |
+| VTrust Tower Parking (Czech Republic Blvd) | 7 Makara | Unknown | Unknown | Car: 220,000 KHR/month (~$55.00) | Moto: 20,000 KHR/month (~$5.00) | — | medium |
+| Keystone Building Basement Parking | BKK1 | Unknown | Unknown | Unknown | — | unknown |
+| Oval Office Tower Parking (St. 360) | BKK1 | Unknown | Unknown | Unknown | — | unknown |
+| Phnom Penh Center Commercial Lot | Chamkar Mon | Unknown | Unknown | Unknown | — | unknown |
+| Garden City Water Park Visitor Parking | Chroy Changvar | 0 KHR (Free) | 0 KHR (Free) | Unknown | Free dedicated on-site parking for park guests (first-come, first-served) | high |
+| Morodok Techo National Stadium Parking | Chroy Changvar | 0 KHR (Free) | 0 KHR (Free) | Unknown | Free on regular non-event days; event parking passes/attendant controls apply during major matches | medium |
+| Win-Win Monument Public Plaza Parking | Chroy Changvar | 0 KHR (Free) | 0 KHR (Free) | Unknown | Free open-air perimeter parking for sightseers | high |
+| Phnom Penh Safari Entrance Parking | Chroy Changvar | Unknown | Unknown | Unknown | — | unknown |
+| Hotel Cambodiana Riverfront Parking | Daun Penh | 0 KHR (Free) | 0 KHR (Free) | Unknown | Free on-site parking for hotel guests & event patrons (no reservation needed) | high |
+| Himawari Hotel Apartments Parking | Daun Penh | 0 KHR (Free) | 0 KHR (Free) | Unknown | Complimentary on-site parking for registered guests | high |
+| SUN & MOON, Urban Hotel Parking | Daun Penh | 0 KHR (Free) | 0 KHR (Free) | Unknown | Complimentary on-site self-parking for hotel guests | high |
+| Palace Gate Hotel & Resort Parking | Daun Penh | 0 KHR (Free) | 0 KHR (Free) | Unknown | Free on-site car park & valet service for registered guests | high |
+| The Plantation Urban Resort Parking | Daun Penh | 0 KHR (Free) | 0 KHR (Free) | Unknown | Complimentary on-site self-parking for guests | high |
+| Oakwood Premier Phnom Penh Parking | Toul Kork | 0 KHR (Free) | 0 KHR (Free) | Unknown | Free on-site self-parking for hotel & serviced apartment guests | high |
+| TRIBE Phnom Penh Post Office Square Parking | Daun Penh | 0 KHR (Free) | 0 KHR (Free) | Unknown | Complimentary on-site guest parking (limited spaces) | high |
+| Prek Pnov Market (Phsar Prek Pnov) Parking | Prek Pnov | Unknown | Unknown | Unknown | — | unknown |
+| Prek Pnov Civic & Transit Approach Lot | Prek Pnov | Unknown | Unknown | Unknown | — | unknown |
+| The Park Community Mall (Boeung Snor) Parking | Chbar Ampov | Unknown | Unknown | Unknown | Open-air customer lot serving mall retail and cafes | unknown |
+| Cho Ray Phnom Penh Hospital Parking | Chbar Ampov | Unknown | Unknown | Unknown | — | unknown |
+| Royal University of Agriculture (RUA) Parking | Dangkao | Unknown | Unknown | Unknown | — | unknown |
+| Choeung Ek Memorial Visitor Parking | Dangkao | Unknown | Unknown | Unknown | — | unknown |
+| Steung Meanchey New Market Parking | Mean Chey | Unknown | Unknown | Unknown | — | unknown |
+| National Technical Training Institute (NTTI) Parking | Sen Sok | Unknown | Unknown | Unknown | — | unknown |
+| Bayon Market (Toul Kork St. 337) Parking | Toul Kork | Unknown | Unknown | Unknown | — | unknown |
+| Thai Huot Market (Toul Kork St. 606) Parking | Toul Kork | 0 KHR (Free) | 0 KHR (Free) | Unknown | Complimentary customer frontage parking while shopping | low |
+| Thai Huot Market (Preah Monivong Blvd) Parking | Daun Penh | 0 KHR (Free) | 0 KHR (Free) | Unknown | Complimentary storefront parking for active customers | low |
+| Super Duper (Tuol Tom Poung St. 488) Parking | Chamkar Mon | 0 KHR (Free) | 0 KHR (Free) | Unknown | Complimentary curbside/lot parking for store shoppers | low |
+| Sihanouk Hospital Center of HOPE Parking | Daun Penh | Unknown | Unknown | Unknown | — | unknown |
+| University of Health Sciences (UHS Main Campus) Parking | Daun Penh | Unknown | Unknown | Unknown | — | unknown |
+| Paññāsāstra University (Tuol Tom Poung Campus) Parking | Chamkar Mon | Unknown | Unknown | Unknown | — | unknown |
+| Phsar Olympic (Olympic Market) Parking | BKK2 | Unknown | Unknown | Unknown | — | unknown |
+| Phsar Kamboul (Kamboul Market) Parking | Kamboul | Unknown | Unknown | Unknown | — | unknown |
+| Phnom Penh Special Economic Zone (PPSEZ) Gate Parking | Kamboul | Unknown | Unknown | Unknown | — | unknown |
 
 ---
 
@@ -253,15 +370,20 @@ All coordinates are integrated into `src/data/parkingLots.ts` and exported in `p
 | MPWT Headquarters Public EV Station | MPWT EVStation | Daun Penh | CCS2, Type 2 | fast | 1,600 KHR/kWh | Free bay parking during charging | 7:00 AM – 8:00 PM | 11.57390, 104.92280 |
 | Connextion Koh Pich EV Hub (OCIC) | OCIC / Destination EV | Chamkar Mon | Type 2 | 22 kW (standard) | Unknown (see app) | Verify on site | Open 24 Hours | 11.54741, 104.94002 |
 | TAN EV Fast Charging (AEON Mall 1) | TAN EV Charging | Chamkar Mon | CCS2, GB/T | 150 kW (fast) | 1,800 KHR/kWh | AEON Mall 1 parking fee (free 0–1h; 2,000 KHR 1–2h) applies separately | 9:00 AM – 10:00 PM | 11.54818, 104.93388 |
+| PTT EV Station PluZ — Veng Sreng | PTT EV Station PluZ | Por Sen Chey | CCS2, Type 2 | 60 kW (fast) | Unknown (see app) | Free station bay parking while actively charging | 24 Hours | 11.53169, 104.86118 |
+| PTT EV Station PluZ — Prek Pnov | PTT EV Station PluZ | Prek Pnov | CCS2, Type 2 | 60 kW (fast) | Unknown (see app) | Free station bay parking while actively charging | 24 Hours | 11.64250, 104.83500 |
+| PTT EV Station PluZ — Prey Kei (NR3) | PTT EV Station PluZ | Por Sen Chey | CCS2, Type 2 | 60 kW (fast) | Unknown (see app) | Free station bay parking while actively charging | 24 Hours | 11.51200, 104.82100 |
+| Charge+ (Wat Koh Street / Street 81) | Charge+ | Daun Penh | Type 2 | 7.4 kW (standard) | Unknown (see app) | Verify on site | Open 24 Hours | 11.56397, 104.92002 |
+| PTT EV Station PluZ — Neak Vorn | PTT EV Station PluZ | Daun Penh | CCS2, GB/T | fast | 1,600 KHR/kWh | Free station bay parking while actively charging | Open 24 Hours | 11.57052, 104.90517 |
 
 ---
 
 ## Deliverable E: Data Quality & Audit Report
 
-- **High/Medium Price Confidence:** 46 facilities
-- **Low Price Confidence (Estimates / Potentially Outdated):** 17 facilities
-- **Unknown Price (Requires On-Site Fee Board Verification):** 27 facilities
-- **Non-High Location Confidence (District/Street Centroid Approximations):** 4 facilities
+- **High/Medium Price Confidence:** 61 facilities
+- **Low Price Confidence (Estimates / Potentially Outdated):** 28 facilities
+- **Unknown Price (Requires On-Site Fee Board Verification):** 61 facilities
+- **Non-High Location Confidence (District/Street Centroid Approximations):** 10 facilities
 - **Duplicate Prevention:** EV charging hubs co-located inside multi-use garages (e.g., `chargeplus-exchange-square`, `tan-ev-aeon-1`) are linked via `parentParkingId` in the EV database rather than duplicating parking lot records.
 
 ### Facilities Flagged for Manual / On-Site Verification
@@ -312,3 +434,49 @@ All coordinates are integrated into `src/data/parkingLots.ts` and exported in `p
 | `goev-36be-st110` | GO EV Hub — 36BE Street 110 (Toul Kork) | Public tariff not published online; Approximate neighborhood/street entrance coordinate |
 | `mpwt-hq-ev-station` | MPWT Headquarters Public EV Station | Estimate or older review (verify current fee board) |
 | `connextion-koh-pich-ev` | Connextion Koh Pich EV Hub (OCIC) | Public tariff not published online |
+| `phsar-bkk-market-lot` | Phsar Boeung Keng Kang (BKK Market) Parking | Estimate or older review (verify current fee board) |
+| `phsar-chbar-ampov-lot` | Phsar Chbar Ampov Market Parking | Estimate or older review (verify current fee board) |
+| `phsar-tuol-sangke-lot` | Phsar Tuol Sangke (Phsar Touch) Parking | Estimate or older review (verify current fee board) |
+| `phsar-chom-chao-lot` | Phsar Chom Chao (Prey Sar) Parking | Estimate or older review (verify current fee board) |
+| `phsar-doeum-kor-lot` | Phsar Doeum Kor Market Parking | Estimate or older review (verify current fee board) |
+| `phsar-kab-ko-lot` | Phsar Kab Ko Market Parking | Estimate or older review (verify current fee board) |
+| `chroy-changvar-market-lot` | Chroy Changvar Market Parking | Estimate or older review (verify current fee board) |
+| `kantha-bopha-st240-hospital` | Kantha Bopha Children's Hospital Parking | Public tariff not published online |
+| `national-pediatric-hospital` | National Pediatric Hospital Parking | Public tariff not published online |
+| `dangkao-referral-hospital` | Dangkao Referral Hospital Parking | Public tariff not published online |
+| `itc-sala-techno-parking` | Institute of Technology of Cambodia (ITC) Parking | Public tariff not published online |
+| `prince-international-plaza` | Prince International Plaza Mall Parking | Public tariff not published online |
+| `prince-central-plaza` | Prince Central Plaza Parking | Public tariff not published online |
+| `mean-chey-avenue-mall` | Mean Chey Avenue Shopping Center Parking | Public tariff not published online |
+| `lucky-chroy-changvar` | Lucky Supermarket (Chroy Changvar) Parking | Public tariff not published online |
+| `tuol-sleng-museum-parking` | Tuol Sleng Museum Visitor Parking (BKK3) | Public tariff not published online |
+| `wat-phnom-perimeter-parking` | Wat Phnom Perimeter Public Parking | Public tariff not published online |
+| `independence-monument-street` | Independence Monument / Preah Sihanouk Street Parking | Public tariff not published online |
+| `ptt-ev-pluz-veng-sreng` | PTT EV Station PluZ — Veng Sreng | Public tariff not published online |
+| `ptt-ev-pluz-prek-pnov` | PTT EV Station PluZ — Prek Pnov | Public tariff not published online; Approximate neighborhood/street entrance coordinate |
+| `ptt-ev-pluz-prey-kei` | PTT EV Station PluZ — Prey Kei (NR3) | Public tariff not published online; Approximate neighborhood/street entrance coordinate |
+| `vtrust-tower` | VTrust Tower Parking (Czech Republic Blvd) | Approximate neighborhood/street entrance coordinate |
+| `keystone-building` | Keystone Building Basement Parking | Public tariff not published online |
+| `oval-office-tower` | Oval Office Tower Parking (St. 360) | Public tariff not published online |
+| `phnom-penh-center` | Phnom Penh Center Commercial Lot | Public tariff not published online |
+| `phnom-penh-safari` | Phnom Penh Safari Entrance Parking | Public tariff not published online |
+| `prek-pnov-market-lot` | Prek Pnov Market (Phsar Prek Pnov) Parking | Public tariff not published online |
+| `prek-pnov-north-hub` | Prek Pnov Civic & Transit Approach Lot | Public tariff not published online; Approximate neighborhood/street entrance coordinate |
+| `park-community-mall` | The Park Community Mall (Boeung Snor) Parking | Public tariff not published online |
+| `cho-ray-hospital-parking` | Cho Ray Phnom Penh Hospital Parking | Public tariff not published online |
+| `rua-dangkao-parking` | Royal University of Agriculture (RUA) Parking | Public tariff not published online |
+| `choeung-ek-center-parking` | Choeung Ek Memorial Visitor Parking | Public tariff not published online |
+| `phsar-stung-meanchey-lot` | Steung Meanchey New Market Parking | Public tariff not published online |
+| `ntti-sen-sok-parking` | National Technical Training Institute (NTTI) Parking | Public tariff not published online |
+| `bayon-market-tk` | Bayon Market (Toul Kork St. 337) Parking | Public tariff not published online |
+| `thai-huot-tk` | Thai Huot Market (Toul Kork St. 606) Parking | Estimate or older review (verify current fee board) |
+| `thai-huot-monivong` | Thai Huot Market (Preah Monivong Blvd) Parking | Estimate or older review (verify current fee board) |
+| `super-duper-ttp` | Super Duper (Tuol Tom Poung St. 488) Parking | Estimate or older review (verify current fee board) |
+| `sihanouk-hospital-hope` | Sihanouk Hospital Center of HOPE Parking | Public tariff not published online |
+| `uhs-monivong-parking` | University of Health Sciences (UHS Main Campus) Parking | Public tariff not published online |
+| `pannasastra-ttp-parking` | Paññāsāstra University (Tuol Tom Poung Campus) Parking | Public tariff not published online |
+| `olympic-market-lot` | Phsar Olympic (Olympic Market) Parking | Public tariff not published online |
+| `phsar-kamboul-lot` | Phsar Kamboul (Kamboul Market) Parking | Public tariff not published online; Approximate neighborhood/street entrance coordinate |
+| `ppsez-kamboul-parking` | Phnom Penh Special Economic Zone (PPSEZ) Gate Parking | Public tariff not published online; Approximate neighborhood/street entrance coordinate |
+| `chargeplus-wat-koh` | Charge+ (Wat Koh Street / Street 81) | Public tariff not published online |
+| `ptt-ev-pluz-neak-vorn` | PTT EV Station PluZ — Neak Vorn | Estimate or older review (verify current fee board) |

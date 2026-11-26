@@ -32,6 +32,8 @@ export const PHNOM_PENH_DISTRICTS = [
   'Chbar Ampov',
   'Por Sen Chey',
   'Dangkao',
+  'Prek Pnov',
+  'Kamboul',
 ] as const;
 
 const IMG_PRESTIGE_MAIN = '/src/assets/images/prestige_garage_main_1795607309358.jpg';

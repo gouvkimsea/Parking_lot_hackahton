@@ -42,6 +42,9 @@ test('Phnom Penh dataset covers all 12 categories, key Khans/neighborhoods, and 
     '7 Makara',
     'Chbar Ampov',
     'Por Sen Chey',
+    'Dangkao',
+    'Prek Pnov',
+    'Kamboul',
   ];
 
   const districts = new Set(PARKING_LOTS.map((l) => l.district));
@@ -68,15 +71,15 @@ test('Phnom Penh dataset covers all 12 categories, key Khans/neighborhoods, and 
     assert.ok(facilityTypes.has(t), `Missing facility type: ${t}`);
   }
 
-  assert.ok(PARKING_LOTS.length >= 50, `Expected >= 50 Phnom Penh facilities, got ${PARKING_LOTS.length}`);
+  assert.ok(PARKING_LOTS.length >= 145, `Expected >= 145 Phnom Penh facilities, got ${PARKING_LOTS.length}`);
 
   for (const lot of PARKING_LOTS) {
     assert.ok(
-      lot.position.lat >= 11.35 && lot.position.lat <= 11.7,
+      lot.position.lat >= 11.35 && lot.position.lat <= 11.72,
       `Latitude out of Phnom Penh metro bounds for ${lot.id}: ${lot.position.lat}`
     );
     assert.ok(
-      lot.position.lng >= 104.8 && lot.position.lng <= 105.0,
+      lot.position.lng >= 104.75 && lot.position.lng <= 105.05,
       `Longitude out of Phnom Penh metro bounds for ${lot.id}: ${lot.position.lng}`
     );
     assert.equal(lot.rating, null, `${lot.id} should not fabricate ratings`);
@@ -113,6 +116,10 @@ test('getCompactPriceDisplay handles confirmed KHR, free parking, EV kWh, and un
   const eden = PARKING_LOTS.find((l) => l.id === 'eden-garden-ppcc')!;
   assert.equal(getCompactPriceDisplay(eden).primaryText, 'Price unavailable');
   assert.equal(getCompactPriceDisplay(eden).status, 'unavailable');
+
+  const sathapana = PARKING_LOTS.find((l) => l.id === 'sathapana-tower')!;
+  assert.equal(getCompactPriceDisplay(sathapana).primaryText, '400,000 KHR/mo');
+  assert.equal(getCompactPriceDisplay(sathapana).status, 'confirmed');
 });
 
 test('getMarkerColorVariant assigns Blue, Purple, Green, Orange, Red, and Cyan accurately', () => {

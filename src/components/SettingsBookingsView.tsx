@@ -10,6 +10,7 @@ import {
 import { USER_AVATAR_URL } from '../data/parkingLots';
 import type {
   BookingRecord,
+  CommunityUser,
   ParkingLot,
   PriceReport,
   SavedVehicle,
@@ -24,6 +25,7 @@ import {
 } from '../utils/parkingLogic';
 
 interface SettingsBookingsViewProps {
+  currentUser: CommunityUser | null;
   bookings: BookingRecord[];
   lots: ParkingLot[];
   favoriteIds: Set<string>;
@@ -37,9 +39,11 @@ interface SettingsBookingsViewProps {
   onAddVehicle: (vehicle: SavedVehicle) => void;
   onDeleteVehicle: (vehicleId: string) => void;
   onTogglePreference: (key: keyof UserPreferences) => void;
+  onOpenCommunityProfile: () => void;
 }
 
 export const SettingsBookingsView: React.FC<SettingsBookingsViewProps> = ({
+  currentUser,
   bookings,
   lots,
   favoriteIds,
@@ -52,6 +56,7 @@ export const SettingsBookingsView: React.FC<SettingsBookingsViewProps> = ({
   onAddVehicle,
   onDeleteVehicle,
   onTogglePreference,
+  onOpenCommunityProfile,
 }) => {
   const [newVehicleLabel, setNewVehicleLabel] = useState('');
   const [newVehiclePlate, setNewVehiclePlate] = useState('');
@@ -96,26 +101,35 @@ export const SettingsBookingsView: React.FC<SettingsBookingsViewProps> = ({
         {/* Left Column: Profile + Vehicles + Preferences */}
         <div className="lg:col-span-5 space-y-5 sm:space-y-6">
           {/* Profile Summary Card */}
-          <div className="bg-white rounded-[24px] sm:rounded-[28px] p-4 sm:p-6 shadow-[0_12px_36px_rgba(20,21,23,0.05)] border border-black/[0.04] flex items-center gap-3.5 sm:gap-4">
-            <img
-              src={USER_AVATAR_URL}
-              alt="Sarah Lin"
-              referrerPolicy="no-referrer"
-              className="w-16 h-16 rounded-full object-cover ring-2 ring-[#C5EC45] shrink-0"
-            />
-            <div className="min-w-0">
-              <h1 className="text-[20px] font-bold text-[#141517] truncate">
-                Sarah Lin
-              </h1>
-              <p className="text-[13px] text-[#767B84]">
-                Phnom Penh Driver · {priceReports.length} Price Report{priceReports.length === 1 ? '' : 's'}
-              </p>
-              <p className="text-[12.5px] font-semibold text-[#141517] mt-1.5 tabular-nums">
-                {activeBookings.length} Active Booking{activeBookings.length === 1 ? '' : 's'}
-                <span className="mx-2 text-[#C4C9D0]" aria-hidden="true">·</span>
-                {favoriteLots.length} Saved Garage{favoriteLots.length === 1 ? '' : 's'}
-              </p>
+          <div className="bg-white rounded-[24px] sm:rounded-[28px] p-4 sm:p-6 shadow-[0_12px_36px_rgba(20,21,23,0.05)] border border-black/[0.04] flex items-center justify-between gap-3.5 flex-wrap">
+            <div className="flex items-center gap-3.5 min-w-0">
+              <img
+                src={USER_AVATAR_URL}
+                alt={currentUser?.name ?? 'Guest Driver'}
+                referrerPolicy="no-referrer"
+                className="w-16 h-16 rounded-full object-cover ring-2 ring-[#C5EC45] shrink-0"
+              />
+              <div className="min-w-0">
+                <h1 className="text-[20px] font-bold text-[#141517] truncate">
+                  {currentUser ? currentUser.name : 'Phnom Penh Guest Driver'}
+                </h1>
+                <p className="text-[13px] text-[#767B84] truncate">
+                  {currentUser ? currentUser.email : 'Sign in to track contributions'} · {priceReports.length} Price Report{priceReports.length === 1 ? '' : 's'}
+                </p>
+                <p className="text-[12.5px] font-semibold text-[#141517] mt-1.5 tabular-nums">
+                  {activeBookings.length} Active Booking{activeBookings.length === 1 ? '' : 's'}
+                  <span className="mx-2 text-[#C4C9D0]" aria-hidden="true">·</span>
+                  {favoriteLots.length} Saved Garage{favoriteLots.length === 1 ? '' : 's'}
+                </p>
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={onOpenCommunityProfile}
+              className="min-h-[40px] px-4 rounded-full bg-[#F4F5F6] hover:bg-[#EAECEF] text-[#141517] text-[12.5px] font-semibold"
+            >
+              {currentUser ? 'View Contributions' : 'Sign In'}
+            </button>
           </div>
 
           {/* Saved Vehicles Card */}

@@ -43,7 +43,7 @@ export type MarkerColorVariant =
 
 export type FloorId = 'ground' | 'first' | 'second';
 
-export type ActiveTab = 'map' | 'home' | 'settings';
+export type ActiveTab = 'map' | 'home' | 'community' | 'settings';
 
 export type MobileScreen = 'home' | 'details' | 'select-space';
 
@@ -144,13 +144,19 @@ export interface ParkingLot {
   distanceKm: number | null;
   rating: number | null;
   reviewCount: number | null;
-  dataSource: 'verified_dataset' | 'google_places' | 'osm_overpass';
+  dataSource: 'verified_dataset' | 'google_places' | 'osm_overpass' | 'community';
   priceConfidence: ConfidenceLevel;
   locationConfidence: ConfidenceLevel;
   sourceUrls: string[];
   lastVerifiedDate: string;
   googleMapsUrl?: string;
   googlePlaceId?: string;
+  communityMeta?: {
+    submissionId: string;
+    submittedById: string;
+    submittedByName: string;
+    submittedAt: string;
+  };
   coordinates: {
     x: number;
     y: number;
@@ -241,4 +247,108 @@ export interface UserPreferences {
   autoGateEntry: boolean;
   pushReminders: boolean;
   evPriority: boolean;
+}
+
+export type CommunityUserRole = 'user' | 'admin';
+
+export interface CommunityUser {
+  id: string;
+  name: string;
+  email: string;
+  passwordHash: string;
+  role: CommunityUserRole;
+  avatarUrl?: string;
+  joinedAt: string;
+}
+
+export type SubmissionStatus = 'pending' | 'approved' | 'rejected' | 'flagged';
+
+export type CommunityPhotoTag =
+  | 'entrance'
+  | 'parking_area'
+  | 'fee_board'
+  | 'facilities'
+  | 'review';
+
+export interface CommunityPhoto {
+  id: string;
+  dataUrl: string;
+  caption?: string;
+  tag: CommunityPhotoTag;
+  uploadedByName?: string;
+  uploadedAt: string;
+}
+
+export type SubmissionFeeMode = 'free' | 'paid' | 'unknown';
+
+export interface CommunityParkingSubmission {
+  id: string;
+  name: string;
+  facilityType: FacilityType;
+  district: string;
+  address: string;
+  position: {
+    lat: number;
+    lng: number;
+  };
+  feeMode: SubmissionFeeMode;
+  hourlyCarKhr: number | null;
+  hourlyMotoKhr: number | null;
+  dailyKhr: number | null;
+  monthlyCarKhr: number | null;
+  capacitySpaces: number | null;
+  indoorOutdoor: 'indoor' | 'outdoor' | 'mixed';
+  covered: boolean;
+  vehicleTypes: VehicleCategory[];
+  facilities: string[];
+  openHours: string;
+  description: string;
+  photos: CommunityPhoto[];
+  status: SubmissionStatus;
+  submittedById: string;
+  submittedByName: string;
+  submittedAt: string;
+  updatedAt?: string;
+  reviewedByName?: string;
+  reviewedAt?: string;
+  moderationNote?: string;
+  flagReason?: string;
+}
+
+export interface CommunityReview {
+  id: string;
+  lotId: string;
+  lotName: string;
+  userId: string;
+  userName: string;
+  rating: number; // 1 to 5
+  comment: string;
+  feeFeedback: 'accurate' | 'higher' | 'lower' | 'free';
+  availabilityNote: 'plenty' | 'moderate' | 'crowded';
+  securityRating: number; // 1 to 5
+  cleanlinessRating: number; // 1 to 5
+  photos: CommunityPhoto[];
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export type CommunityIssueType =
+  | 'incorrect_price'
+  | 'suggest_correction'
+  | 'permanently_closed';
+
+export interface CommunityFeedbackReport {
+  id: string;
+  lotId: string;
+  lotName: string;
+  issueType: CommunityIssueType;
+  reportedPriceKhr?: number;
+  vehicleType?: 'car' | 'motorcycle' | 'bicycle' | 'ev_kwh';
+  suggestedDetails: string;
+  userId: string;
+  userName: string;
+  status: 'open' | 'resolved' | 'dismissed';
+  createdAt: string;
+  resolvedByName?: string;
+  resolvedAt?: string;
 }

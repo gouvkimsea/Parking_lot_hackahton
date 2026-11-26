@@ -64,7 +64,7 @@ const approximateLocationLots = allRecords.filter(
 const lines: string[] = [
   '# Phnom Penh Smart Parking & EV Charging Deep Research Database',
   '',
-  `**Last Verified:** 2026-11-25`,
+  `**Last Verified:** 2026-11-26`,
   `**Total Discovered Facilities:** ${allRecords.length} (${allRecords.filter((r) => r.parking_category !== 'ev_station').length} parking facilities + ${allRecords.filter((r) => r.parking_category === 'ev_station').length} dedicated EV charging stations)`,
   `**Total EV-Capable Locations:** ${evRecords.length}`,
   '',

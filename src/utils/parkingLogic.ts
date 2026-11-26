@@ -122,6 +122,24 @@ export function getCompactPriceDisplay(lot: ParkingLot): {
     };
   }
 
+  if (lot.pricing.monthlyCar?.khr !== null && lot.pricing.monthlyCar?.khr !== undefined) {
+    const val = lot.pricing.monthlyCar.khr;
+    return {
+      primaryText: `${formatKhr(val)}/mo`,
+      secondaryUsd: formatUsdApprox(val),
+      status: lot.pricing.verificationStatus,
+    };
+  }
+
+  if (lot.pricing.monthlyMotorcycle?.khr !== null && lot.pricing.monthlyMotorcycle?.khr !== undefined) {
+    const val = lot.pricing.monthlyMotorcycle.khr;
+    return {
+      primaryText: `Moto ${formatKhr(val)}/mo`,
+      secondaryUsd: formatUsdApprox(val),
+      status: lot.pricing.verificationStatus,
+    };
+  }
+
   return {
     primaryText: 'Price unavailable',
     secondaryUsd: null,

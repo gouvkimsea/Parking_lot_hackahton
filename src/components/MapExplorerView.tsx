@@ -94,10 +94,14 @@ interface MapExplorerViewProps {
     note?: string;
     seq: number;
   } | null;
+  externalFocusLotRequest?: { lot: ParkingLot; seq: number } | null;
   driveVehicle: DriveVehicleMode | null;
   findingNearest: boolean;
   onRequestNearestDrive: () => void;
   onChangeDriveVehicle: (vehicle: DriveVehicleMode) => void;
+  onRequestAddParking: () => void;
+  communityOnly: boolean;
+  onCommunityOnlyChange: (only: boolean) => void;
 }
 
 const VEHICLE_FILTER_OPTIONS: Array<{ id: VehicleCategory | 'all'; label: string }> = [
@@ -340,7 +344,21 @@ const ParkingMarkerItem: React.FC<ParkingMarkerItemProps> = ({
                 </span>
               </div>
               <p className="text-[14px] font-bold leading-snug mt-0.5">{lot.name}</p>
-              <p className="text-[11.5px] text-[#6B7280]">{lot.district}, Phnom Penh</p>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <p className="text-[11.5px] text-[#6B7280]">{lot.district}, Phnom Penh</p>
+                {lot.dataSource === 'community' && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-[#141517] text-[#C5EC45] text-[9.5px] font-bold">
+                    Community
+                  </span>
+                )}
+              </div>
+              {lot.dataSource === 'community' && lot.images[0] && (
+                <img
+                  src={lot.images[0]}
+                  alt={lot.name}
+                  className="w-full h-20 object-cover rounded-xl mt-1.5"
+                />
+              )}
             </div>
 
             <div className="bg-[#F6F7F8] rounded-xl px-2.5 py-2 space-y-1 text-[11.5px]">
@@ -365,6 +383,40 @@ const ParkingMarkerItem: React.FC<ParkingMarkerItemProps> = ({
                   {lot.categories.map((c) => VEHICLE_TYPE_LABELS[c]).join(', ')}
                 </span>
               </div>
+              {lot.evCharging && (
+                <>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[#6B7280]">EV Charger</span>
+                    <span className="font-semibold text-cyan-800 text-right">
+                      {[
+                        lot.evCharging.maxPowerKw !== null
+                          ? `${lot.evCharging.maxPowerKw} kW`
+                          : null,
+                        lot.evCharging.connectorTypes.join('/'),
+                        lot.evCharging.portCount !== null
+                          ? `${lot.evCharging.portCount} ports`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </span>
+                  </div>
+                  {lot.evCharging.provider && (
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[#6B7280]">Provider</span>
+                      <span className="font-medium text-[#141517] text-right">
+                        {lot.evCharging.provider}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[#6B7280]">Hours</span>
+                    <span className="font-medium text-[#141517] text-right">
+                      {lot.evCharging.operatingHours || lot.openHours}
+                    </span>
+                  </div>
+                </>
+              )}
               {lot.rating !== null && (
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[#6B7280]">Rating</span>
@@ -913,10 +965,14 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
   onOpenDetails,
   onMergeGooglePlacesLots,
   externalRouteRequest,
+  externalFocusLotRequest,
   driveVehicle,
   findingNearest,
   onRequestNearestDrive,
   onChangeDriveVehicle,
+  onRequestAddParking,
+  communityOnly,
+  onCommunityOnlyChange,
 }) => {
   const [mapType, setMapType] = useState<'roadmap' | 'hybrid'>('roadmap');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -979,7 +1035,18 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
     (facilityType !== 'all' ? 1 : 0) +
     (availabilityFilter !== 'all' ? 1 : 0) +
     (evFilter !== 'all' ? 1 : 0) +
-    (nearUserOnly ? 1 : 0);
+    (nearUserOnly ? 1 : 0) +
+    (communityOnly ? 1 : 0);
+
+  useEffect(() => {
+    if (!externalFocusLotRequest) return;
+    setMobileViewMode('map');
+    setMobileSheetState('peek');
+    setFocusLotTrigger((prev) => ({
+      lot: externalFocusLotRequest.lot,
+      seq: (prev?.seq ?? 0) + 1,
+    }));
+  }, [externalFocusLotRequest]);
 
   useEffect(() => {
     if (!externalRouteRequest) return;
@@ -1136,8 +1203,41 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
         })}
       </div>
 
-      {/* Quick Vehicle Type Pills */}
+      {/* Quick Vehicle Type Pills + Near Me Toggle */}
       <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+        <button
+          type="button"
+          onClick={() => {
+            if (!userPosition) {
+              handleLocateMe();
+              onNearUserOnlyChange(true);
+            } else {
+              onNearUserOnlyChange(!nearUserOnly);
+            }
+          }}
+          className={`min-h-[38px] lg:min-h-[34px] px-3 py-1.5 rounded-full text-[12px] whitespace-nowrap shrink-0 inline-flex items-center gap-1 transition-all ${
+            nearUserOnly && userPosition
+              ? 'bg-[#141517] text-white font-semibold'
+              : 'bg-[#F4F5F6] text-[#525760] hover:text-[#141517] font-medium'
+          }`}
+        >
+          <Navigation className="w-3 h-3" />
+          <span>Near Me</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onCommunityOnlyChange(!communityOnly)}
+          className={`min-h-[38px] lg:min-h-[34px] px-3 py-1.5 rounded-full text-[12px] whitespace-nowrap shrink-0 inline-flex items-center gap-1 transition-all ${
+            communityOnly
+              ? 'bg-[#141517] text-[#C5EC45] font-semibold'
+              : 'bg-[#F4F5F6] text-[#525760] hover:text-[#141517] font-medium'
+          }`}
+        >
+          <Star className="w-3 h-3" />
+          <span>Community Added</span>
+        </button>
+
         {VEHICLE_FILTER_OPTIONS.map((opt) => {
           const active = vehicleType === opt.id;
           return (
@@ -1303,19 +1403,34 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
         <Search className="w-6 h-6 text-[#767B84] mx-auto" />
         <div>
           <p className="text-[14.5px] font-bold text-[#141517]">
-            No matching Phnom Penh facilities
+            {evFilter === 'available'
+              ? 'No live EV availability feed connected'
+              : 'No matching Phnom Penh facilities'}
           </p>
           <p className="text-[12.5px] text-[#767B84] mt-1">
-            Try clearing one of the neighborhood, price, or vehicle filters.
+            {evFilter === 'available'
+              ? 'Real-time charger port occupancy is not published by Phnom Penh operators yet. Switch to All EV Stations to view verified locations and specs.'
+              : 'Try clearing one of the neighborhood, price, availability, or vehicle filters.'}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onResetFilters}
-          className="min-h-[44px] px-5 py-2 rounded-full bg-[#C5EC45] hover:bg-[#B6DE35] text-[#141517] text-[12.5px] font-semibold"
-        >
-          Reset All Filters
-        </button>
+        <div className="flex items-center justify-center gap-2 flex-wrap">
+          {evFilter === 'available' && (
+            <button
+              type="button"
+              onClick={() => onEvFilterChange('all')}
+              className="min-h-[44px] px-5 py-2 rounded-full bg-[#141517] hover:bg-[#2A2D32] text-white text-[12.5px] font-semibold"
+            >
+              Show All EV Stations
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onResetFilters}
+            className="min-h-[44px] px-5 py-2 rounded-full bg-[#C5EC45] hover:bg-[#B6DE35] text-[#141517] text-[12.5px] font-semibold"
+          >
+            Reset All Filters
+          </button>
+        </div>
       </div>
     ) : (
       filteredLots.map((lot) => {
@@ -1374,6 +1489,34 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
                   <span className="text-[11px] font-medium text-[#767B84]">
                     {lot.district}
                   </span>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                      lot.availability.status === 'available'
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : lot.availability.status === 'limited'
+                          ? 'bg-amber-50 text-amber-700'
+                          : lot.availability.status === 'full'
+                            ? 'bg-red-50 text-red-700'
+                            : 'bg-[#F4F5F6] text-[#6B7280]'
+                    }`}
+                  >
+                    {AVAILABILITY_LABELS[lot.availability.status]}
+                    {lot.availability.availableSpaces !== null
+                      ? ` (${lot.availability.availableSpaces})`
+                      : ''}
+                  </span>
+                  {lot.dataSource === 'community' && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#141517] text-[#C5EC45]">
+                      Community
+                    </span>
+                  )}
+                  {lot.rating !== null && (
+                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[10.5px] font-bold">
+                      <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
+                      {lot.rating.toFixed(1)}
+                      {lot.reviewCount ? ` (${lot.reviewCount})` : ''}
+                    </span>
+                  )}
                 </div>
                 <h3 className="text-[14.5px] font-bold text-[#141517] mt-1 leading-snug">
                   {lot.name}
@@ -1429,6 +1572,9 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
                         ? 'Fast DC'
                         : 'AC'}{' '}
                     · {lot.evCharging.connectorTypes.join('/')}
+                    {lot.evCharging.portCount !== null
+                      ? ` · ${lot.evCharging.portCount} ports`
+                      : ''}
                   </span>
                 ) : (
                   <>
@@ -1437,6 +1583,13 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
                         <span className="inline-flex items-center gap-1 tabular-nums">
                           <Bike className="w-3.5 h-3.5" />
                           Moto: {lot.pricing.motorcycle.khr.toLocaleString()} KHR
+                        </span>
+                      )}
+                    {lot.pricing.daily?.khr !== undefined &&
+                      lot.pricing.daily.khr !== null &&
+                      lot.pricing.daily.khr > 0 && (
+                        <span className="tabular-nums text-[#525760]">
+                          · Daily: {lot.pricing.daily.khr.toLocaleString()} KHR
                         </span>
                       )}
                     {lot.categories.includes('car') && (
@@ -1877,6 +2030,16 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
 
               <button
                 type="button"
+                onClick={onRequestAddParking}
+                data-testid="map-add-parking-btn"
+                className="min-h-[40px] lg:min-h-[36px] px-3.5 rounded-full bg-[#141517] hover:bg-[#2A2D32] text-white text-[12px] font-bold shadow-md inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors"
+              >
+                <MapPin className="w-3.5 h-3.5 text-[#C5EC45]" />
+                <span>+ Add Parking</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={onRequestNearestDrive}
                 disabled={findingNearest}
                 data-testid="map-nearest-drive-btn"
@@ -2132,17 +2295,39 @@ export const MapExplorerView: React.FC<MapExplorerViewProps> = ({
                   <div className="p-3 space-y-2.5 overflow-y-auto clean-scroll">
                     {/* Active Selected Card */}
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-semibold text-[#525760] truncate">
-                          {selectedLot.district} ·{' '}
-                          {FACILITY_TYPE_LABELS[selectedLot.facilityType]}
-                          {selectedDistanceKm !== null
-                            ? ` · ${selectedDistanceKm.toFixed(1)} km`
-                            : ''}
-                        </p>
-                        <h2 className="text-[14.5px] font-bold text-[#141517] truncate">
-                          {selectedLot.name}
-                        </h2>
+                      <div className="flex items-start gap-2.5 min-w-0">
+                        {selectedLot.dataSource === 'community' && selectedLot.images[0] && (
+                          <img
+                            src={selectedLot.images[0]}
+                            alt={selectedLot.name}
+                            className="w-12 h-12 rounded-xl object-cover shrink-0 border border-black/5"
+                          />
+                        )}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-[11px] font-semibold text-[#525760] truncate">
+                              {selectedLot.district} ·{' '}
+                              {FACILITY_TYPE_LABELS[selectedLot.facilityType]}
+                              {selectedDistanceKm !== null
+                                ? ` · ${selectedDistanceKm.toFixed(1)} km`
+                                : ''}
+                            </p>
+                            {selectedLot.dataSource === 'community' && (
+                              <span className="px-1.5 py-0.5 rounded-full bg-[#141517] text-[#C5EC45] text-[9.5px] font-bold">
+                                Community
+                              </span>
+                            )}
+                            {selectedLot.rating !== null && (
+                              <span className="inline-flex items-center gap-0.5 text-[10.5px] font-bold text-[#B45309]">
+                                <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                                {selectedLot.rating.toFixed(1)}
+                              </span>
+                            )}
+                          </div>
+                          <h2 className="text-[14.5px] font-bold text-[#141517] truncate">
+                            {selectedLot.name}
+                          </h2>
+                        </div>
                       </div>
                       {selectedPriceDisplay && (
                         <div className="text-right shrink-0">

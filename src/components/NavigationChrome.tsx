@@ -5,28 +5,39 @@ import {
   Home,
   Map,
   Menu,
+  MessageSquarePlus,
+  Plus,
   Settings,
+  UserCheck,
   X,
 } from 'lucide-react';
-import type { ActiveTab } from '../types/parking';
+import type { ActiveTab, CommunityUser } from '../types/parking';
 
 interface DesktopTopBarProps {
   activeTab: ActiveTab;
   onSelectTab: (tab: ActiveTab) => void;
   activeBookingCount: number;
   favoriteCount: number;
+  currentUser: CommunityUser | null;
+  pendingModerationCount: number;
   onQuickBook: () => void;
+  onRequestAddParking: () => void;
+  onOpenAuth: () => void;
 }
 
 export const DesktopTopBar: React.FC<DesktopTopBarProps> = ({
   activeTab,
   onSelectTab,
   activeBookingCount,
+  currentUser,
+  pendingModerationCount,
   onQuickBook,
+  onRequestAddParking,
+  onOpenAuth,
 }) => {
   return (
     <header className="hidden md:block sticky top-0 z-40 bg-[#F6F8F3]/95 backdrop-blur-md border-b border-black/[0.05]">
-      <div className="max-w-[1440px] 2xl:max-w-[1600px] mx-auto px-4 lg:px-6 xl:px-8 h-16 flex items-center justify-between gap-4 lg:gap-6">
+      <div className="max-w-[1440px] 2xl:max-w-[1600px] mx-auto px-4 lg:px-6 xl:px-8 h-16 flex items-center justify-between gap-3 lg:gap-5">
         {/* Zone 1: Brand Wordmark + Phnom Penh Focus Pill */}
         <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
           <button
@@ -44,17 +55,25 @@ export const DesktopTopBar: React.FC<DesktopTopBarProps> = ({
         {/* Zone 2: Responsive Single-Line Navigation Links */}
         <nav
           aria-label="Primary navigation"
-          className="flex items-center gap-4 md:gap-5 lg:gap-8"
+          className="flex items-center gap-3 md:gap-4 lg:gap-6"
         >
           {(
             [
               { id: 'home', label: 'Home', tabletLabel: 'Home' },
               { id: 'map', label: 'Discover Map', tabletLabel: 'Map' },
               {
+                id: 'community',
+                label:
+                  currentUser?.role === 'admin' && pendingModerationCount > 0
+                    ? `Contributions (${pendingModerationCount})`
+                    : 'Contributions',
+                tabletLabel: 'Contribute',
+              },
+              {
                 id: 'settings',
                 label:
                   activeBookingCount > 0
-                    ? `Saved & Bookings (${activeBookingCount})`
+                    ? `Saved (${activeBookingCount})`
                     : 'Saved & Settings',
                 tabletLabel:
                   activeBookingCount > 0
@@ -70,7 +89,7 @@ export const DesktopTopBar: React.FC<DesktopTopBarProps> = ({
                 type="button"
                 onClick={() => onSelectTab(item.id)}
                 aria-current={isActive ? 'page' : undefined}
-                className={`relative min-h-[44px] px-1.5 flex items-center text-[13.5px] lg:text-[14px] whitespace-nowrap shrink-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141517] rounded ${
+                className={`relative min-h-[44px] px-1.5 flex items-center text-[13px] lg:text-[14px] whitespace-nowrap shrink-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141517] rounded ${
                   isActive
                     ? 'font-bold text-[#141517]'
                     : 'font-medium text-[#6B7280] hover:text-[#141517]'
@@ -86,15 +105,45 @@ export const DesktopTopBar: React.FC<DesktopTopBarProps> = ({
           })}
         </nav>
 
-        {/* Zone 3: Primary Action */}
-        <div className="shrink-0">
+        {/* Zone 3: Community Actions & Quick Book */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={onRequestAddParking}
+            data-testid="header-add-parking-btn"
+            className="px-3.5 min-h-[40px] rounded-full bg-[#141517] hover:bg-[#2A2D32] text-white text-[12.5px] font-semibold inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5 text-[#C5EC45]" />
+            <span>Add Parking</span>
+          </button>
+
+          {currentUser ? (
+            <button
+              type="button"
+              onClick={() => onSelectTab('community')}
+              data-testid="header-user-profile-btn"
+              className="px-3 min-h-[40px] rounded-full bg-white hover:bg-[#EEF2E6] border border-black/10 text-[#141517] text-[12.5px] font-semibold inline-flex items-center gap-1.5 whitespace-nowrap shrink-0"
+            >
+              <UserCheck className="w-3.5 h-3.5 text-[#4D6A0A]" />
+              <span className="max-w-[100px] truncate">{currentUser.name.split(' ')[0]}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onOpenAuth}
+              data-testid="header-signin-btn"
+              className="px-3 min-h-[40px] rounded-full bg-white hover:bg-[#EEF2E6] border border-black/10 text-[#141517] text-[12.5px] font-semibold whitespace-nowrap shrink-0"
+            >
+              Sign In
+            </button>
+          )}
+
           <button
             type="button"
             onClick={onQuickBook}
-            className="px-4 lg:px-5 min-h-[44px] rounded-full bg-[#C5EC45] hover:bg-[#B6DE35] active:scale-[0.98] text-[#141517] text-[13px] lg:text-[13.5px] font-semibold transition-all whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141517]"
+            className="hidden xl:inline-flex items-center px-4 min-h-[40px] rounded-full bg-[#C5EC45] hover:bg-[#B6DE35] active:scale-[0.98] text-[#141517] text-[13px] font-semibold transition-all whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#141517]"
           >
-            <span className="lg:hidden">Book Bay</span>
-            <span className="hidden lg:inline">Book Selected Bay</span>
+            Book Bay
           </button>
         </div>
       </div>
@@ -109,8 +158,11 @@ interface MobileTopHeaderProps {
   favoriteCount: number;
   totalLocationCount: number;
   selectedLotName: string;
+  currentUser: CommunityUser | null;
   onQuickBook: () => void;
   onOpenBayDemo: () => void;
+  onRequestAddParking: () => void;
+  onOpenAuth: () => void;
 }
 
 export const MobileTopHeader: React.FC<MobileTopHeaderProps> = ({
@@ -120,8 +172,11 @@ export const MobileTopHeader: React.FC<MobileTopHeaderProps> = ({
   favoriteCount,
   totalLocationCount,
   selectedLotName,
+  currentUser,
   onQuickBook,
   onOpenBayDemo,
+  onRequestAddParking,
+  onOpenAuth,
 }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -268,6 +323,47 @@ export const MobileTopHeader: React.FC<MobileTopHeaderProps> = ({
 
                 <button
                   type="button"
+                  onClick={() => navigate('community')}
+                  className={`w-full min-h-[46px] px-3.5 rounded-2xl flex items-center gap-3 text-[14px] font-semibold transition-colors ${
+                    activeTab === 'community'
+                      ? 'bg-[#C5EC45] text-[#141517]'
+                      : 'bg-[#F6F7F8] text-[#141517]'
+                  }`}
+                >
+                  <MessageSquarePlus className="w-4 h-4 shrink-0" />
+                  <span>Community & Reviews</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDrawerOpen(false);
+                    onRequestAddParking();
+                  }}
+                  className="w-full min-h-[46px] px-3.5 rounded-2xl flex items-center gap-3 text-[14px] font-semibold bg-[#F3FCE0] text-[#3F5A05]"
+                >
+                  <Plus className="w-4 h-4 shrink-0" />
+                  <span>Add Missing Parking</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDrawerOpen(false);
+                    if (currentUser) {
+                      navigate('community');
+                    } else {
+                      onOpenAuth();
+                    }
+                  }}
+                  className="w-full min-h-[46px] px-3.5 rounded-2xl flex items-center gap-3 text-[14px] font-semibold bg-[#F6F7F8] text-[#141517]"
+                >
+                  <UserCheck className="w-4 h-4 shrink-0" />
+                  <span>{currentUser ? `${currentUser.name} Profile` : 'Sign In / Register'}</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => {
                     setDrawerOpen(false);
                     onOpenBayDemo();
@@ -338,6 +434,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   }> = [
     { id: 'home', label: 'Home', icon: Home },
     { id: 'map', label: 'Map', icon: Map },
+    { id: 'community', label: 'Contribute', icon: MessageSquarePlus },
     { id: 'settings', label: 'Saved', icon: Settings },
   ];
 
@@ -346,7 +443,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       aria-label="Mobile navigation"
       className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-black/[0.06] px-2.5 sm:px-4 pt-2 pb-[max(0.6rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(20,21,23,0.06)]"
     >
-      <div className="max-w-[460px] mx-auto grid grid-cols-3 gap-2">
+      <div className="max-w-[480px] mx-auto grid grid-cols-4 gap-1.5">
         {navItems.map(({ id, label, icon: Icon }) => {
           const isActive = activeTab === id;
           return (

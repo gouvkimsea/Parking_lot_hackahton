@@ -148,11 +148,42 @@ function buildPopupElement(
   root.appendChild(title);
 
   const sub = document.createElement('div');
-  sub.textContent = `${lot.district}, Phnom Penh`;
-  sub.style.fontSize = '11.5px';
-  sub.style.color = '#6B7280';
+  sub.style.display = 'flex';
+  sub.style.alignItems = 'center';
+  sub.style.gap = '6px';
+  sub.style.flexWrap = 'wrap';
   sub.style.marginTop = '2px';
+
+  const locSpan = document.createElement('span');
+  locSpan.textContent = `${lot.district}, Phnom Penh`;
+  locSpan.style.fontSize = '11.5px';
+  locSpan.style.color = '#6B7280';
+  sub.appendChild(locSpan);
+
+  if (lot.dataSource === 'community') {
+    const commBadge = document.createElement('span');
+    commBadge.textContent = 'Community';
+    commBadge.style.fontSize = '10px';
+    commBadge.style.fontWeight = '700';
+    commBadge.style.padding = '1px 7px';
+    commBadge.style.borderRadius = '9999px';
+    commBadge.style.background = '#141517';
+    commBadge.style.color = '#C5EC45';
+    sub.appendChild(commBadge);
+  }
   root.appendChild(sub);
+
+  if (lot.dataSource === 'community' && lot.images[0]) {
+    const thumb = document.createElement('img');
+    thumb.src = lot.images[0];
+    thumb.alt = lot.name;
+    thumb.style.width = '100%';
+    thumb.style.height = '82px';
+    thumb.style.objectFit = 'cover';
+    thumb.style.borderRadius = '12px';
+    thumb.style.marginTop = '7px';
+    root.appendChild(thumb);
+  }
 
   const box = document.createElement('div');
   box.style.background = '#F6F7F8';
@@ -194,6 +225,22 @@ function buildPopupElement(
     'Vehicles',
     lot.categories.map((c) => VEHICLE_TYPE_LABELS[c]).join(', ')
   );
+  if (lot.evCharging) {
+    const evSpec = [
+      lot.evCharging.maxPowerKw !== null ? `${lot.evCharging.maxPowerKw} kW` : null,
+      lot.evCharging.connectorTypes.join('/'),
+      lot.evCharging.portCount !== null ? `${lot.evCharging.portCount} ports` : null,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    if (evSpec) {
+      addInfoRow('EV Charger', evSpec);
+    }
+    if (lot.evCharging.provider) {
+      addInfoRow('Provider', lot.evCharging.provider);
+    }
+    addInfoRow('Hours', lot.evCharging.operatingHours || lot.openHours);
+  }
   if (lot.rating !== null) {
     addInfoRow(
       'Rating',
@@ -273,6 +320,8 @@ export const LeafletPhnomPenhMap: React.FC<LeafletPhnomPenhMapProps> = ({
   const userMarkerRef = useRef<L.CircleMarker | null>(null);
   const searchMarkerRef = useRef<L.Marker | null>(null);
   const routePolylineRef = useRef<L.Polyline | null>(null);
+  const openPopupLotIdRef = useRef<string | null>(null);
+  const rebuildingMarkersRef = useRef(false);
 
   const clearRoute = useCallback(() => {
     if (routePolylineRef.current && mapRef.current) {
@@ -344,6 +393,7 @@ export const LeafletPhnomPenhMap: React.FC<LeafletPhnomPenhMapProps> = ({
     const layer = markersLayerRef.current;
     if (!layer) return;
 
+    rebuildingMarkersRef.current = true;
     layer.clearLayers();
     markerByIdRef.current = {};
 
@@ -366,11 +416,24 @@ export const LeafletPhnomPenhMap: React.FC<LeafletPhnomPenhMapProps> = ({
       );
 
       marker.on('click', () => {
+        openPopupLotIdRef.current = lot.id;
         onSelectLotFromMarker(lot.id);
+      });
+
+      marker.on('popupclose', () => {
+        if (!rebuildingMarkersRef.current && openPopupLotIdRef.current === lot.id) {
+          openPopupLotIdRef.current = null;
+        }
       });
 
       marker.addTo(layer);
       markerByIdRef.current[lot.id] = marker;
+    }
+
+    rebuildingMarkersRef.current = false;
+
+    if (openPopupLotIdRef.current && markerByIdRef.current[openPopupLotIdRef.current]) {
+      markerByIdRef.current[openPopupLotIdRef.current].openPopup();
     }
   }, [
     lots,
@@ -386,6 +449,7 @@ export const LeafletPhnomPenhMap: React.FC<LeafletPhnomPenhMapProps> = ({
     const map = mapRef.current;
     if (!map || !focusLotTrigger) return;
     const { lot } = focusLotTrigger;
+    openPopupLotIdRef.current = lot.id;
     const targetZoom = Math.max(map.getZoom(), 15);
     map.flyTo([lot.position.lat, lot.position.lng], targetZoom, {
       duration: 0.45,

@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AddParkingModal } from './components/AddParkingModal';
+import { AuthModal } from './components/AuthModal';
 import { BookingModal } from './components/BookingModal';
+import { CommunityProfileView } from './components/CommunityProfileView';
 import { DailyRatesChart } from './components/DailyRatesChart';
 import { DetailsPanel } from './components/DetailsPanel';
 import { DiscoverPanel } from './components/DiscoverPanel';
@@ -14,10 +17,30 @@ import {
 import { SettingsBookingsView } from './components/SettingsBookingsView';
 import { SpaceSelectorPanel } from './components/SpaceSelectorPanel';
 import { INITIAL_VEHICLES, PARKING_LOTS, PHNOM_PENH_CENTER } from './data/parkingLots';
+import {
+  authenticatePrototypeUser,
+  loadCommunityReports,
+  loadCommunityReviews,
+  loadCommunitySubmissions,
+  loadCommunityUsers,
+  loadCurrentSessionUserId,
+  registerPrototypeUser,
+  saveCommunityReports,
+  saveCommunityReviews,
+  saveCommunitySubmissions,
+  saveCommunityUsers,
+  saveCurrentSessionUserId,
+} from './services/communityStore';
 import type {
   ActiveTab,
   AvailabilityStatus,
   BookingRecord,
+  CommunityFeedbackReport,
+  CommunityIssueType,
+  CommunityParkingSubmission,
+  CommunityPhoto,
+  CommunityReview,
+  CommunityUser,
   DriveVehicleMode,
   EvFilterMode,
   FacilityType,
@@ -28,9 +51,15 @@ import type {
   PriceBracketFilter,
   PriceReport,
   SavedVehicle,
+  SubmissionStatus,
   UserPreferences,
   VehicleCategory,
 } from './types/parking';
+import {
+  communitySubmissionToParkingLot,
+  enrichLotWithCommunityActivity,
+  upsertUserReview,
+} from './utils/communityLogic';
 import {
   calculateDistanceKm,
   filterParkingLots,
@@ -86,12 +115,50 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('home');
   const [mobileScreen, setMobileScreen] = useState<MobileScreen>('home');
 
-  // Dynamic lot list (base verified Phnom Penh dataset + optional Google Places live discoveries)
-  const [googleDiscoveredLots, setGoogleDiscoveredLots] = useState<ParkingLot[]>([]);
-  const allLots = useMemo(
-    () => [...PARKING_LOTS, ...googleDiscoveredLots],
-    [googleDiscoveredLots]
+  // Community contribution, auth & moderation state (simulated frontend prototype persistence)
+  const [communityUsers, setCommunityUsers] = useState<CommunityUser[]>(() =>
+    loadCommunityUsers()
   );
+  const [currentUserId, setCurrentUserId] = useState<string | null>(() =>
+    loadCurrentSessionUserId()
+  );
+  const [communitySubmissions, setCommunitySubmissions] = useState<
+    CommunityParkingSubmission[]
+  >(() => loadCommunitySubmissions());
+  const [communityReviews, setCommunityReviews] = useState<CommunityReview[]>(() =>
+    loadCommunityReviews()
+  );
+  const [communityReports, setCommunityReports] = useState<
+    CommunityFeedbackReport[]
+  >(() => loadCommunityReports());
+
+  const [communityOnly, setCommunityOnly] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authReason, setAuthReason] = useState<string | null>(null);
+  const [addParkingModalOpen, setAddParkingModalOpen] = useState(false);
+  const [editingSubmission, setEditingSubmission] =
+    useState<CommunityParkingSubmission | null>(null);
+  const pendingAfterAuthRef = useRef<(() => void) | null>(null);
+
+  const currentUser = useMemo(
+    () =>
+      currentUserId
+        ? communityUsers.find((u) => u.id === currentUserId) ?? null
+        : null,
+    [communityUsers, currentUserId]
+  );
+
+  // Dynamic lot list (base verified Phnom Penh dataset + approved community locations + Google Places/OSM discoveries)
+  const [googleDiscoveredLots, setGoogleDiscoveredLots] = useState<ParkingLot[]>([]);
+  const allLots = useMemo(() => {
+    const approvedCommunityLots = communitySubmissions
+      .filter((s) => s.status === 'approved')
+      .map((s) => communitySubmissionToParkingLot(s, communityReviews));
+
+    return [...PARKING_LOTS, ...approvedCommunityLots, ...googleDiscoveredLots].map(
+      (lot) => enrichLotWithCommunityActivity(lot, communityReviews, communitySubmissions)
+    );
+  }, [communitySubmissions, communityReviews, googleDiscoveredLots]);
 
   // Phnom Penh discovery filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -115,6 +182,10 @@ export default function App() {
   const [activeFloor, setActiveFloor] = useState<FloorId>('ground');
   const [selectedBayId, setSelectedBayId] = useState<string | null>('ground-G-03');
   const [highlightSpacePanel, setHighlightSpacePanel] = useState(false);
+  const [externalFocusLotRequest, setExternalFocusLotRequest] = useState<{
+    lot: ParkingLot;
+    seq: number;
+  } | null>(null);
   const [externalRouteRequest, setExternalRouteRequest] = useState<{
     lot: ParkingLot;
     origin?: google.maps.LatLngLiteral;
@@ -225,6 +296,26 @@ export default function App() {
     }
   }, [driveVehicle]);
 
+  useEffect(() => {
+    saveCommunityUsers(communityUsers);
+  }, [communityUsers]);
+
+  useEffect(() => {
+    saveCurrentSessionUserId(currentUserId);
+  }, [currentUserId]);
+
+  useEffect(() => {
+    saveCommunitySubmissions(communitySubmissions);
+  }, [communitySubmissions]);
+
+  useEffect(() => {
+    saveCommunityReviews(communityReviews);
+  }, [communityReviews]);
+
+  useEffect(() => {
+    saveCommunityReports(communityReports);
+  }, [communityReports]);
+
   const activeBookedBayKeys = useMemo(
     () => getActiveBookedBayKeys(bookings),
     [bookings]
@@ -244,8 +335,11 @@ export default function App() {
       nearUserOnly,
       userPosition,
     });
-    if (!preferences.evPriority) return base;
-    return [...base].sort((a, b) => {
+    const scoped = communityOnly
+      ? base.filter((l) => l.dataSource === 'community')
+      : base;
+    if (!preferences.evPriority) return scoped;
+    return [...scoped].sort((a, b) => {
       const aEv = a.categories.includes('ev') ? 1 : 0;
       const bEv = b.categories.includes('ev') ? 1 : 0;
       return bEv - aEv;
@@ -260,6 +354,7 @@ export default function App() {
     availabilityFilter,
     evFilter,
     nearUserOnly,
+    communityOnly,
     userPosition,
     preferences.evPriority,
   ]);
@@ -364,6 +459,7 @@ export default function App() {
     setAvailabilityFilter('all');
     setEvFilter('all');
     setNearUserOnly(false);
+    setCommunityOnly(false);
   }, []);
 
   const handleToggleFavorite = (lotId: string) => {
@@ -417,6 +513,285 @@ export default function App() {
   const handleSubmitPriceReport = (report: PriceReport) => {
     setPriceReports((prev) => [report, ...prev]);
   };
+
+  const handleRequireAuth = useCallback(
+    (reason: string, afterAuth?: () => void) => {
+      pendingAfterAuthRef.current = afterAuth ?? null;
+      setAuthReason(reason);
+      setAuthModalOpen(true);
+    },
+    []
+  );
+
+  const handleLogin = useCallback(
+    (email: string, password: string): { ok: boolean; error?: string } => {
+      const res = authenticatePrototypeUser(communityUsers, email, password);
+      if (!res.user) {
+        return { ok: false, error: res.error };
+      }
+      setCurrentUserId(res.user.id);
+      setAuthModalOpen(false);
+      setAuthReason(null);
+      const nextAction = pendingAfterAuthRef.current;
+      pendingAfterAuthRef.current = null;
+      if (nextAction) {
+        window.setTimeout(nextAction, 0);
+      }
+      return { ok: true };
+    },
+    [communityUsers]
+  );
+
+  const handleRegister = useCallback(
+    (
+      name: string,
+      email: string,
+      password: string
+    ): { ok: boolean; error?: string } => {
+      const res = registerPrototypeUser(communityUsers, name, email, password);
+      if (!res.user || !res.users) {
+        return { ok: false, error: res.error };
+      }
+      setCommunityUsers(res.users);
+      setCurrentUserId(res.user.id);
+      setAuthModalOpen(false);
+      setAuthReason(null);
+      const nextAction = pendingAfterAuthRef.current;
+      pendingAfterAuthRef.current = null;
+      if (nextAction) {
+        window.setTimeout(nextAction, 0);
+      }
+      return { ok: true };
+    },
+    [communityUsers]
+  );
+
+  const handleLogout = useCallback(() => {
+    setCurrentUserId(null);
+  }, []);
+
+  const handleRequestAddParking = useCallback(() => {
+    const openForm = () => {
+      setEditingSubmission(null);
+      setAddParkingModalOpen(true);
+    };
+    if (!currentUser) {
+      handleRequireAuth(
+        'Sign in or create a free ParkEasy account to submit a missing Phnom Penh parking spot.',
+        openForm
+      );
+      return;
+    }
+    openForm();
+  }, [currentUser, handleRequireAuth]);
+
+  const handleSubmitNewParking = useCallback(
+    (payload: {
+      name: string;
+      facilityType: FacilityType;
+      district: string;
+      address: string;
+      position: { lat: number; lng: number };
+      feeMode: 'free' | 'paid' | 'unknown';
+      hourlyCarKhr: number | null;
+      hourlyMotoKhr: number | null;
+      dailyKhr: number | null;
+      monthlyCarKhr: number | null;
+      capacitySpaces: number | null;
+      indoorOutdoor: 'indoor' | 'outdoor' | 'mixed';
+      covered: boolean;
+      vehicleTypes: VehicleCategory[];
+      facilities: string[];
+      openHours: string;
+      description: string;
+      photos: CommunityPhoto[];
+    }) => {
+      if (!currentUser) return;
+      const newSub: CommunityParkingSubmission = {
+        ...payload,
+        id: `community-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        status: 'pending',
+        submittedById: currentUser.id,
+        submittedByName: currentUser.name,
+        submittedAt: new Date().toISOString(),
+      };
+      setCommunitySubmissions((prev) => [newSub, ...prev]);
+    },
+    [currentUser]
+  );
+
+  const handleSaveEditSubmission = useCallback(
+    (
+      submissionId: string,
+      payload: Omit<
+        CommunityParkingSubmission,
+        | 'id'
+        | 'status'
+        | 'submittedById'
+        | 'submittedByName'
+        | 'submittedAt'
+        | 'updatedAt'
+      >
+    ) => {
+      if (!currentUser) return;
+      setCommunitySubmissions((prev) =>
+        prev.map((sub) =>
+          sub.id === submissionId
+            ? {
+                ...sub,
+                ...payload,
+                updatedAt: new Date().toISOString(),
+              }
+            : sub
+        )
+      );
+    },
+    [currentUser]
+  );
+
+  const handleModerateSubmission = useCallback(
+    (submissionId: string, status: SubmissionStatus, note?: string) => {
+      if (!currentUser || currentUser.role !== 'admin') return;
+      setCommunitySubmissions((prev) =>
+        prev.map((sub) =>
+          sub.id === submissionId
+            ? {
+                ...sub,
+                status,
+                moderationNote: note?.trim() || sub.moderationNote,
+                reviewedByName: currentUser.name,
+                reviewedAt: new Date().toISOString(),
+                flagReason: status === 'approved' ? undefined : sub.flagReason,
+              }
+            : sub
+        )
+      );
+    },
+    [currentUser]
+  );
+
+  const handleDeleteSubmission = useCallback(
+    (submissionId: string) => {
+      if (!currentUser) return;
+      setCommunitySubmissions((prev) =>
+        prev.filter((s) => {
+          if (s.id !== submissionId) return true;
+          const allowed =
+            currentUser.role === 'admin' ||
+            (s.submittedById === currentUser.id && s.status === 'pending');
+          return !allowed;
+        })
+      );
+    },
+    [currentUser]
+  );
+
+  const handleOpenLotOnMap = useCallback(
+    (lotId: string, openDrawer = false) => {
+      handleSelectLot(lotId, false);
+      const target = allLots.find((l) => l.id === lotId);
+      if (target) {
+        setExternalFocusLotRequest((prev) => ({
+          lot: target,
+          seq: (prev?.seq ?? 0) + 1,
+        }));
+      }
+      if (openDrawer) {
+        setDrawerLotId(lotId);
+      }
+      setActiveTab('map');
+    },
+    [allLots, handleSelectLot]
+  );
+
+  const handleSubmitReview = useCallback(
+    (payload: {
+      lotId: string;
+      lotName: string;
+      rating: number;
+      comment: string;
+      feeFeedback: CommunityReview['feeFeedback'];
+      availabilityNote: CommunityReview['availabilityNote'];
+      securityRating: number;
+      cleanlinessRating: number;
+      photos: CommunityPhoto[];
+    }) => {
+      if (!currentUser) return;
+      setCommunityReviews((prev) =>
+        upsertUserReview(prev, {
+          ...payload,
+          userId: currentUser.id,
+          userName: currentUser.name,
+        })
+      );
+    },
+    [currentUser]
+  );
+
+  const handleSubmitFeedbackReport = useCallback(
+    (payload: {
+      lotId: string;
+      lotName: string;
+      issueType: CommunityIssueType;
+      reportedPriceKhr?: number;
+      vehicleType?: PriceReport['vehicleType'];
+      suggestedDetails: string;
+    }) => {
+      if (!currentUser) return;
+      const newReport: CommunityFeedbackReport = {
+        ...payload,
+        id: `crep-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        status: 'open',
+        createdAt: new Date().toISOString(),
+      };
+      setCommunityReports((prev) => [newReport, ...prev]);
+
+      // Flag community submissions when users report closure or nonexistent spots
+      if (payload.issueType === 'permanently_closed') {
+        setCommunitySubmissions((prev) =>
+          prev.map((sub) =>
+            sub.id === payload.lotId
+              ? {
+                  ...sub,
+                  status: 'flagged',
+                  flagReason: payload.suggestedDetails,
+                }
+              : sub
+          )
+        );
+      }
+    },
+    [currentUser]
+  );
+
+  const handleResolveReport = useCallback(
+    (reportId: string, resolution: 'resolved' | 'dismissed') => {
+      if (!currentUser || currentUser.role !== 'admin') return;
+      setCommunityReports((prev) =>
+        prev.map((rep) =>
+          rep.id === reportId
+            ? {
+                ...rep,
+                status: resolution,
+                resolvedByName: currentUser.name,
+                resolvedAt: new Date().toISOString(),
+              }
+            : rep
+        )
+      );
+    },
+    [currentUser]
+  );
+
+  const pendingModerationCount = useMemo(
+    () =>
+      communitySubmissions.filter(
+        (s) => s.status === 'pending' || s.status === 'flagged'
+      ).length + communityReports.filter((r) => r.status === 'open').length,
+    [communitySubmissions, communityReports]
+  );
 
   const routeToNearestForVehicle = useCallback(
     (vehicle: DriveVehicleMode) => {
@@ -512,10 +887,18 @@ export default function App() {
         onSelectTab={handleTabChange}
         activeBookingCount={activeBookingCount}
         favoriteCount={favoriteIds.length}
+        currentUser={currentUser}
+        pendingModerationCount={pendingModerationCount}
         onQuickBook={() => {
           setActiveTab('home');
           handleOpenBookingModal();
         }}
+        onRequestAddParking={handleRequestAddParking}
+        onOpenAuth={() =>
+          handleRequireAuth(
+            'Sign in or register to submit parking locations and community reviews.'
+          )
+        }
       />
 
       {/* Mobile Compact Header + Hamburger Drawer */}
@@ -526,6 +909,7 @@ export default function App() {
         favoriteCount={favoriteIds.length}
         totalLocationCount={allLots.length}
         selectedLotName={selectedLot.name}
+        currentUser={currentUser}
         onQuickBook={() => {
           setActiveTab('home');
           handleOpenBookingModal();
@@ -534,6 +918,12 @@ export default function App() {
           setActiveTab('home');
           setMobileScreen('select-space');
         }}
+        onRequestAddParking={handleRequestAddParking}
+        onOpenAuth={() =>
+          handleRequireAuth(
+            'Sign in or register to submit parking locations and community reviews.'
+          )
+        }
       />
 
       {/* Main Content Area */}
@@ -566,10 +956,14 @@ export default function App() {
             onOpenDetails={(id) => setDrawerLotId(id)}
             onMergeGooglePlacesLots={handleMergeGooglePlacesLots}
             externalRouteRequest={externalRouteRequest}
+            externalFocusLotRequest={externalFocusLotRequest}
             driveVehicle={driveVehicle}
             findingNearest={findingNearest}
             onRequestNearestDrive={handleRequestNearestDrive}
             onChangeDriveVehicle={handleChangeDriveVehicle}
+            onRequestAddParking={handleRequestAddParking}
+            communityOnly={communityOnly}
+            onCommunityOnlyChange={setCommunityOnly}
           />
         )}
 
@@ -687,8 +1081,34 @@ export default function App() {
           </div>
         )}
 
+        {activeTab === 'community' && (
+          <CommunityProfileView
+            currentUser={currentUser}
+            submissions={communitySubmissions}
+            reviews={communityReviews}
+            reports={communityReports}
+            onOpenAuth={(reason) =>
+              handleRequireAuth(
+                reason ??
+                  'Sign in or register to access your contribution profile and moderation tools.'
+              )
+            }
+            onLogout={handleLogout}
+            onRequestAddParking={handleRequestAddParking}
+            onEditSubmission={(sub) => {
+              setEditingSubmission(sub);
+              setAddParkingModalOpen(true);
+            }}
+            onOpenLotOnMap={(id) => handleOpenLotOnMap(id, true)}
+            onModerateSubmission={handleModerateSubmission}
+            onDeleteSubmission={handleDeleteSubmission}
+            onResolveReport={handleResolveReport}
+          />
+        )}
+
         {activeTab === 'settings' && (
           <SettingsBookingsView
+            currentUser={currentUser}
             bookings={bookings}
             lots={allLots}
             favoriteIds={favoriteSet}
@@ -698,14 +1118,11 @@ export default function App() {
             activeBookedBayKeys={activeBookedBayKeys}
             onCancelBooking={handleCancelBooking}
             onShowPass={handleShowPass}
-            onOpenLot={(id) => {
-              handleSelectLot(id, false);
-              setDrawerLotId(id);
-              setActiveTab('map');
-            }}
+            onOpenLot={(id) => handleOpenLotOnMap(id, true)}
             onAddVehicle={handleAddVehicle}
             onDeleteVehicle={handleDeleteVehicle}
             onTogglePreference={handleTogglePreference}
+            onOpenCommunityProfile={() => setActiveTab('community')}
           />
         )}
       </main>
@@ -725,6 +1142,17 @@ export default function App() {
         isFavorite={drawerLot ? favoriteSet.has(drawerLot.id) : false}
         userPosition={userPosition}
         existingReports={priceReports}
+        currentUser={currentUser}
+        lotReviews={
+          drawerLot
+            ? communityReviews.filter((r) => r.lotId === drawerLot.id)
+            : []
+        }
+        lotFeedbackReports={
+          drawerLot
+            ? communityReports.filter((r) => r.lotId === drawerLot.id)
+            : []
+        }
         onClose={() => setDrawerLotId(null)}
         onToggleFavorite={handleToggleFavorite}
         onRequestDirections={(lot) => {
@@ -743,7 +1171,37 @@ export default function App() {
           setHighlightSpacePanel(true);
           window.setTimeout(() => setHighlightSpacePanel(false), 1200);
         }}
+        onRequireAuth={handleRequireAuth}
         onSubmitPriceReport={handleSubmitPriceReport}
+        onSubmitReview={handleSubmitReview}
+        onSubmitFeedbackReport={handleSubmitFeedbackReport}
+      />
+
+      {/* Community Auth Modal */}
+      <AuthModal
+        isOpen={authModalOpen}
+        reasonMessage={authReason}
+        onClose={() => {
+          setAuthModalOpen(false);
+          setAuthReason(null);
+          pendingAfterAuthRef.current = null;
+        }}
+        onLogin={handleLogin}
+        onRegister={handleRegister}
+      />
+
+      {/* Community Add / Edit Parking Location Modal */}
+      <AddParkingModal
+        isOpen={addParkingModalOpen}
+        editingSubmission={editingSubmission}
+        submitterName={currentUser?.name ?? 'Contributor'}
+        isAdminMode={currentUser?.role === 'admin'}
+        onClose={() => {
+          setAddParkingModalOpen(false);
+          setEditingSubmission(null);
+        }}
+        onSubmitNew={handleSubmitNewParking}
+        onSaveEdit={handleSaveEditSubmission}
       />
 
       {/* Booking Checkout & Digital Pass Modal */}
